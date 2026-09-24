@@ -16,6 +16,13 @@
 
 import type { ParLegacyQuestionAnswer, ParLegacyThreeSixtyReview } from "../api/types";
 
+// Ports HistoryPanel.tsx's own hasLegacyContent: a legacy text field is
+// "empty" both when it's genuinely blank and when the migration wrote the
+// literal string "N/A" into it.
+export function hasLegacyContent(text: string | null | undefined): boolean {
+  return Boolean(text) && text!.trim() !== "" && text!.trim().toUpperCase() !== "N/A";
+}
+
 // Ports utils/types.ts's own parseLegacyQuestionAnswers/parseLegacyFeedback360:
 // both fields are raw JSON strings on the wire; a parse failure reads as "no
 // data" rather than throwing.

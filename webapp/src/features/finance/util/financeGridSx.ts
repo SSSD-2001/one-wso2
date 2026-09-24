@@ -16,27 +16,16 @@
  * under the License.
  */
 
+import { GRID_NO_POINTER_FOCUS_SX } from "@utils/dataGridSx";
+
 /**
- * Shared look for the finance data grids.
+ * Shared look for the finance data grids: the shared no-pointer-focus rule
+ * plus the smaller cell type these screens use.
  *
- * The focus outline is the point of this. MUI rings the cell you last clicked,
- * which on a read-only grid reads as "this cell is selected" and means nothing
- * — there is no cell-level action anywhere in these screens. The source app
- * suppresses it globally in its own theme (theme.ts:281-297, for cells, column
- * headers and rows alike); our grids took the library default instead.
- *
- * Keyboard focus is deliberately left visible: `:focus-visible` still rings,
- * so arrow-key navigation through the grid can still be followed. Only the
- * pointer-driven ring goes, which is the one that carries no information.
+ * The focus-ring reasoning now lives with the rule itself — see
+ * GRID_NO_POINTER_FOCUS_SX.
  */
 export const FINANCE_GRID_SX = {
+  ...GRID_NO_POINTER_FOCUS_SX,
   "& .MuiDataGrid-cell": { fontSize: 12.5 },
-  "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": { outline: "none" },
-  "& .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within": {
-    outline: "none",
-  },
-  // Both, not just cells: a column header is reachable by keyboard for sorting
-  // and its menu, so removing every header ring left that navigation invisible.
-  "& .MuiDataGrid-cell:focus-visible": { outline: "auto 1px" },
-  "& .MuiDataGrid-columnHeader:focus-visible": { outline: "auto 1px" },
 } as const;

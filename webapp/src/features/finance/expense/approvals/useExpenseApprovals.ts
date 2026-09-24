@@ -16,28 +16,15 @@
  * under the License.
  */
 
-import { useExpenseClaims } from "../useExpense";
 import { useExpenseClaimStatus } from "../useExpenseMutations";
-import { nextStatus, type ApproverView, type ExpenseClaimSearchPayload } from "../expenseTypes";
-import type { ApprovalClaim } from "./expenseApprovalTypes";
+import { nextStatus, type ApproverView } from "../expenseTypes";
 
 /**
- * The data this screen runs on. Everything here wraps a hook the expense app
- * already owns rather than restating it: the queue is the shared
- * `/search-claims` query, and the decision is the shared `/claims/{id}/status`
+ * The decision this screen runs on: the shared `/claims/{id}/status`
  * mutation, which already sends the `{ status, reason? }` body the source
  * sends (`claimDetailsSlice.ts:104-106`) and already invalidates the claim
  * queries on success.
  */
-
-/**
- * The queue. Re-typed to `ApprovalClaim` for the `submittedBy` the on-behalf
- * chip needs — a local `extends`, not a widening of the shared DTO.
- */
-export function useApprovalQueue(payload: ExpenseClaimSearchPayload, enabled: boolean) {
-  const query = useExpenseClaims(payload, enabled);
-  return { ...query, data: query.data as ApprovalClaim[] | undefined };
-}
 
 export type ApprovalDecision = "approve" | "reject";
 

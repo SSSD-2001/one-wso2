@@ -86,10 +86,23 @@ describe("People Ops rail sections", () => {
     // Note what this leaves unguarded: nothing checks here that those two ids
     // ARE in SUBSCRIPTION_ITEM_IDS, so the next assertion does that — dropping
     // an id from both places would otherwise look like a passing test.
+    //
+    // The two PAR entries are a third kind of exception: par-app has its own
+    // role model (team lead / admin), unrelated to people-app's generic
+    // "admin" capability. `requires: ["admin"]` would be wrong here the same
+    // way it would on Subscriptions — a People Ops admin isn't necessarily a
+    // PAR admin or a team lead, and vice versa. The rail routes these two
+    // through ParRequiresTeamLeadRoute/ParRequiresAdminRoute instead (see
+    // perspectives.ts's own comment above the PAR group) — that each one
+    // actually reaches its gate and redirects a non-lead/non-admin away is
+    // asserted in ParLeadTabRouting.test.tsx/ParAdminTabRouting.test.tsx,
+    // not here.
     const NOT_ADMIN_GATED = new Set([
       "people-org-chart",
       "people-subscriptions-mine",
       "people-subscriptions-manage",
+      "par-lead-portal",
+      "par-admin-portal",
     ]);
     const live = PEOPLE_OPS_SECTIONS.flatMap((s) => [s, ...(s.children ?? [])]).filter(
       (s) => s.path,

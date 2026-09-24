@@ -19,13 +19,8 @@ import {
   Alert,
   Box,
   Button,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   Skeleton,
   Stack,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -33,24 +28,31 @@ import {
   TableRow,
   Typography,
 } from "@wso2/oxygen-ui";
-import { useDebouncedValue } from "@hooks/useDebouncedValue";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isExpenseBackendConfigured } from "@config/apiConfig";
 import { StatusChip, expenseStatusMeta } from "../../components/FinanceChips";
-import { describeError } from "../../util/financeError";
-import { money, formatNice, startOfYearIso, endOfYearIso } from "../../util/financeFormat";
-import { useExpenseAppData, useExpenseClaims, useExpenseEmployees } from "../useExpense";
+import { money, formatNice } from "../../util/financeFormat";
+import { useExpenseEmployees } from "../useExpense";
+import { ExpenseHistoryFilters } from "../history/ExpenseHistoryFilters";
+import { ExpenseHistoryTable } from "../history/ExpenseHistoryTable";
 import { ExpenseHistoryClaimDetails } from "../history/ExpenseHistoryClaimDetails";
 import { ExpenseClaimActivityDrawer } from "../history/ExpenseClaimActivityDrawer";
-import { makeNameResolver, type HistoryClaim } from "../history/expenseHistoryTypes";
+import { useExpenseHistoryAppData, useExpenseHistoryClaims } from "../history/useExpenseHistory";
 import {
-  EXPENSE_FILTERABLE_STATUSES,
-  type ExpenseClaim,
-  type ExpenseClaimStatus,
-} from "../expenseTypes";
+  EMPTY_HISTORY_FILTERS,
+  makeNameResolver,
+  toHistorySearchPayload,
+  type HistoryClaim,
+  type HistoryFilters,
+} from "../history/expenseHistoryTypes";
+import type { ExpenseClaim } from "../expenseTypes";
 
-// The Expense tab of Claims. The page frame is the Claims shell's now, but this
-// tab still reports its own backend's connectivity: the screen spans two
-// backends and either may be missing, so the notice belongs per tab.
+// The Expense tab of Claims. Reports its own backend's connectivity, since the
+// screen spans two and either may be missing.
+//
+// Shares its filters, table and search payload with Finance → Expense Claims
+// → Claim History — that screen read the same claims, on-behalf filtering
+// included, so there was nothing left for it to do once this tab covered it.
 export default function ExpenseClaimsTab() {
   if (!isExpenseBackendConfigured()) {
     return (
@@ -64,56 +66,27 @@ export default function ExpenseClaimsTab() {
   return <HistoryBody />;
 }
 
-// Match the source app's default: "Latest 100" sends limit=100 with NO date
-// filter (so claims across all years show); a specific year narrows via a
-// startDate/endDate range.
-const LATEST = "latest";
-type Range = typeof LATEST | number;
-
 function HistoryBody() {
-  const appData = useExpenseAppData();
-  const currentYear = new Date().getFullYear();
+  const appData = useExpenseHistoryAppData();
   // Names are what the source shows on screen; addresses live in tooltips —
   // needed only for the activity trail's submission stage.
   const employees = useExpenseEmployees();
   const nameFor = useMemo(() => makeNameResolver(employees.data), [employees.data]);
-  const [range, setRange] = useState<Range>(LATEST);
+  const [filters, setFilters] = useState<HistoryFilters>(EMPTY_HISTORY_FILTERS);
   // The claim being read in full — the details panel takes over the page,
   // the same way Finance → Expense Claims → Claim History slides it over
   // the list.
   const [selected, setSelected] = useState<HistoryClaim | null>(null);
-  // Independent of `selected`: the activity trail opens straight from the
-  // detail view's own header button.
+  // Independent of `selected`: the activity trail opens straight from a row's
+  // status chip, or from the detail view's own header button.
   const [activityClaim, setActivityClaim] = useState<HistoryClaim | null>(null);
-  // FilterHolder.tsx:175-178,249 — the employee's own view filters by status
-  // and by claim id as well as by period.
-  const [status, setStatus] = useState<ExpenseClaimStatus | "All">("All");
-  const [claimId, setClaimId] = useState("");
-  // Debounced before it reaches the query: useExpenseClaims keys on the whole
-  // payload, so the raw value would fire a search per keystroke — and on the
-  // finance view that search spans the company. The source batches the same
-  // fields behind an Apply button (FilterHolder.tsx:53,81-82).
-  const claimIdFilter = useDebouncedValue(claimId.trim());
 
   const email = appData.data?.userInfo.workEmail ?? undefined;
-  const claims = useExpenseClaims(
-    {
-      email,
-      ...(range === LATEST
-        ? { limit: 100 }
-        : { startDate: startOfYearIso(range), endDate: endOfYearIso(range) }),
-      // tableSlice.ts:47,51 — both are omitted rather than sent empty.
-      ids: claimIdFilter ? [claimIdFilter] : undefined,
-      status: status === "All" ? undefined : [status],
-    },
-    Boolean(email),
-  );
+  const payload = useMemo(() => toHistorySearchPayload(filters, email), [filters, email]);
+  const claims = useExpenseHistoryClaims(payload, Boolean(email));
 
-  const years = useMemo(() => {
-    const out: number[] = [];
-    for (let y = currentYear; y >= currentYear - 5; y--) out.push(y);
-    return out;
-  }, [currentYear]);
+  // FilterHolder.tsx:285 — nobody to have filed for means nothing to filter by.
+  const canFilterBySubmission = (appData.data?.onBehalfOfEmployees ?? []).length > 0;
 
   // Same review screen Finance → Expense Claims → Claim History uses, taking
   // over this tab the same way it takes over that screen — bills in full,
@@ -139,67 +112,62 @@ function HistoryBody() {
     );
   }
 
+  // A fill column, not plain flow: the list below can run long, and without
+  // this the whole page scrolled — carrying the filters away with it —
+  // instead of just the table.
   return (
-    <Box>
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>Show</Typography>
-        <FormControl size="small">
-          <Select<Range>
-            value={range}
-            onChange={(e) => setRange(e.target.value === LATEST ? LATEST : Number(e.target.value))}
-            sx={{ minWidth: 130 }}
-          >
-            <MenuItem value={LATEST}>Latest 100</MenuItem>
-            {years.map((y) => (
-              <MenuItem key={y} value={y}>
-                {y}
-              </MenuItem>
+    <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <ExpenseHistoryFilters
+        filters={filters}
+        onChange={setFilters}
+        canFilterBySubmission={canFilterBySubmission}
+      />
+
+      {/* The scrolling region: the filters above stay fixed, only this —
+          the skeleton, the empty state, or the table — scrolls when it
+          runs long. */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {appData.isLoading || claims.isLoading ? (
+          <Stack spacing={1}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
             ))}
-          </Select>
-        </FormControl>
-
-        <FormControl size="small">
-          <InputLabel id="expense-status">Status</InputLabel>
-          <Select
-            labelId="expense-status"
-            label="Status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as ExpenseClaimStatus | "All")}
-            sx={{ minWidth: 170 }}
+          </Stack>
+        ) : appData.isError || claims.isError ? (
+          <ErrorNotice
+            error={appData.error ?? claims.error}
+            // Retry whichever query actually failed. Retrying only the claims
+            // search left an app-data failure permanently on screen: that
+            // search is disabled without an email, so it had nothing to
+            // re-run and the button could never clear the error it was
+            // offered for.
+            onRetry={() => {
+              if (appData.isError) void appData.refetch();
+              if (claims.isError) void claims.refetch();
+            }}
+            retrying={appData.isFetching || claims.isFetching}
           >
-            <MenuItem value="All">All</MenuItem>
-            {EXPENSE_FILTERABLE_STATUSES.map((st) => (
-              <MenuItem key={st} value={st}>
-                {expenseStatusMeta(st).label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            Couldn&apos;t load your claims.
+          </ErrorNotice>
+        ) : (claims.data?.length ?? 0) === 0 ? (
+          <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
+            No claims match these filters.
+          </Typography>
+        ) : (
+          <ExpenseHistoryTable
+            claims={claims.data!}
+            onView={setSelected}
+            onShowActivity={setActivityClaim}
+          />
+        )}
+      </Box>
 
-        <TextField
-          size="small"
-          label="Filter by claim ID"
-          value={claimId}
-          onChange={(e) => setClaimId(e.target.value)}
-          sx={{ minWidth: 200 }}
-        />
-      </Stack>
-
-      {appData.isLoading || claims.isLoading ? (
-        <Stack spacing={1}>
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
-          ))}
-        </Stack>
-      ) : appData.isError || claims.isError ? (
-        <Alert severity="error">Couldn't load your claims. {describeError(appData.error ?? claims.error)}</Alert>
-      ) : (claims.data?.length ?? 0) === 0 ? (
-        <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
-          {range === LATEST ? "No expense claims on record." : `No expense claims on record for ${range}.`}
-        </Typography>
-      ) : (
-        <ClaimsTable claims={claims.data!} onView={setSelected} />
-      )}
+      <ExpenseClaimActivityDrawer
+        claim={activityClaim}
+        nameFor={nameFor}
+        viewerEmail={email}
+        onClose={() => setActivityClaim(null)}
+      />
     </Box>
   );
 }

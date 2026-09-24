@@ -20,6 +20,7 @@
 import { csmUrl, isCsmConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import {
+  Box as BoxIcon,
   CheckCheckIcon,
   ClipboardCheckIcon,
   DatabaseIcon,
@@ -143,38 +144,39 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
     icon: TicketIcon,
     path: "/people-ops/subscriptions/manage",
   },
-  // par-app's Lead Portal — the half of par-app that's about your reports,
-  // not yourself (the employee portal moved to the Me perspective, see
-  // parApps.ts). `alwaysGroup` for the same reason Master Data below
-  // carries it: a named group rather than a bare leaf, since a second child
-  // (Admin Portal, once built — see docs/ported-apps/par-app.md §9) is
-  // still coming. Spread in rather than filtered out, so with the flag off
-  // the entry does not exist at all.
-  ...(isPreviewEnabled("par")
-    ? [
-        {
-          id: "people-par",
-          label: "PAR",
-          icon: ClipboardCheckIcon,
-          alwaysGroup: true,
-          children: [
-            // Note what is NOT here: `requires: ["lead"]`. one-wso2's generic
-            // "lead" capability is people-app privilege 993 — unrelated to
-            // par-app's own PAR-cycle-scoped isTeamLead, and not guaranteed to
-            // agree with it either way. SideRail asks useParIsTeamLead for
-            // this one instead (PAR_LEAD_PORTAL_ITEM_ID below), the same
-            // treatment Finance/Leave/Marketing Ops/Subscriptions already get
-            // for the identical reason. ParRequiresTeamLeadRoute is what
-            // actually enforces access at the route either way.
-            {
-              id: "par-lead-portal",
-              label: "Lead Portal",
-              path: "/people-ops/performance/lead",
-            },
-          ],
-        },
-      ]
-    : []),
+  // par-app's Lead and Admin Portals — the halves of par-app that are about
+  // your reports and the org-wide cycle, not yourself (the employee portal
+  // moved to the Me perspective, see parApps.ts). `alwaysGroup` for the
+  // same reason Master Data below carries it: a named group rather than a
+  // bare leaf, since it has more than one child.
+  {
+    id: "people-par",
+    label: "PAR",
+    icon: ClipboardCheckIcon,
+    alwaysGroup: true,
+    children: [
+      // Note what is NOT here: `requires: ["lead"]`. one-wso2's generic
+      // "lead" capability is people-app privilege 993 — unrelated to
+      // par-app's own PAR-cycle-scoped isTeamLead, and not guaranteed to
+      // agree with it either way. SideRail asks useParIsTeamLead for
+      // this one instead (PAR_LEAD_PORTAL_ITEM_ID below), the same
+      // treatment Finance/Leave/Marketing Ops/Subscriptions already get
+      // for the identical reason. ParRequiresTeamLeadRoute is what
+      // actually enforces access at the route either way.
+      {
+        id: "par-lead-portal",
+        label: "Lead Portal",
+        path: "/people-ops/performance/lead",
+      },
+      // Same treatment as Lead Portal above: gated via
+      // PAR_ADMIN_PORTAL_ITEM_ID / useParIsAdmin, not `requires`.
+      {
+        id: "par-admin-portal",
+        label: "Admin Portal",
+        path: "/people-ops/performance/admin",
+      },
+    ],
+  },
   {
     id: "people-active-employee-report",
     label: "Active Employees",
@@ -266,6 +268,9 @@ export const SUBSCRIPTION_ITEM_IDS: ReadonlySet<string> = new Set([
  */
 export const PAR_LEAD_PORTAL_ITEM_ID = "par-lead-portal";
 
+/** Same idea, for the Admin Portal — gated via useParIsAdmin. */
+export const PAR_ADMIN_PORTAL_ITEM_ID = "par-admin-portal";
+
 // Marketing Ops. Built from the registry now so the rail is ready, but the
 // perspective itself stays locked (`access: false` below) until Phase 1
 // (Utilities) lands — see "My Findings Marketing Ops.md" in the repo root.
@@ -319,12 +324,28 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_APPS),
   ...appsToSections(ME_FINANCE_APPS),
   // par-app's employee portal — see docs/ported-apps/par-app.md.
-  ...(isPreviewEnabled("par") ? appsToSections(ME_PAR_APPS) : []),
+  ...appsToSections(ME_PAR_APPS),
 ];
 
 const UMT_SECTIONS: PerspectiveSection[] = [
   { id: "umt-updates", label: "Updates", icon: RefreshCcw, path: "/umt/updates" },
+  // Admin-only. `requires` speaks the people-app capability vocabulary, which
+  // UMT's own numeric roles have nothing to do with — this is filtered by
+  // UMT_ADMIN_ITEM_IDS below instead, the same way Finance/Leave/Subscriptions
+  // items are (see the comment above SUBSCRIPTION_ITEM_IDS).
+  { id: "umt-products", label: "Product Management", icon: BoxIcon, path: "/umt/products" },
 ];
+
+/**
+ * UMT rail ids whose visibility must be decided by UMT's own /update/user-info
+ * roles, not the people-app capability vocabulary `requires` speaks — the same
+ * shape of problem as SUBSCRIPTION_ITEM_IDS/FINANCE_ITEM_IDS/LEAVE_ITEM_IDS
+ * above. Product Management is UMT_ADMIN-only; reading that against people-app
+ * capabilities would show it to a people-app admin who isn't a UMT admin, and
+ * hide it from a UMT admin who isn't one. Whatever renders these sections must
+ * ask useUmtGate directly rather than reading `requires` for them.
+ */
+export const UMT_ADMIN_ITEM_IDS: ReadonlySet<string> = new Set(["umt-products"]);
 
 export interface PerspectiveDef {
   key: string;

@@ -152,6 +152,27 @@ export const bankingServiceUrls = {
 export const parBackendUrl: string =
   window.config?.ONE_WSO2_PAR_BACKEND_URL ?? "";
 
+// The Lead Portal's evidence-attachment picker (ParLeadReviewPanel.tsx) is
+// the only caller — a plain OAuth client ID, not a backend URL, so it lives
+// here rather than in parServiceUrls.
+export const googleOAuthClientId: string =
+  window.config?.ONE_WSO2_PAR_GOOGLE_OAUTH_CLIENT_ID ?? "";
+// Optional — par-app's own useGoogleDrivePicker.ts never calls
+// PickerBuilder.setDeveloperKey either and works without it. Only needed if
+// Google's "API developer key is invalid" error shows up in practice.
+export const googlePickerApiKey: string =
+  window.config?.ONE_WSO2_PAR_GOOGLE_PICKER_API_KEY ?? "";
+
+// par-app's own admin-configurable rating names that trigger the Top 5%/20%
+// checkbox and the evidence-attachment requirement — real config, not
+// hardcoded constants, since Admin Portal → Configurations lets an admin
+// freely rename or remove entries from the org-wide parRatings list, and a
+// hardcoded trigger name would silently stop matching if that happened.
+export const top5p20pEnabledRating: string =
+  window.config?.ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING ?? "Successful";
+export const evidenceEnabledRating: string =
+  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvement";
+
 export const parServiceUrls = {
   // GET /employees/{workEmail} — par-app's OWN employee record, distinct
   // from people-app's. Carries `leadEmail: string?` — the exact field
@@ -277,6 +298,45 @@ export const parServiceUrls = {
   // shows the Meet link itself, only a "meeting scheduled" confirmation —
   // see ParScheduleF2fDialog.tsx.
   calendarScheduleF2f: () => `${parBackendUrl}/calendar/schedule-f2f`,
+
+  // ---- Admin Portal -------------------------------------------------------------
+  //
+  // Admin-gated server-side already (invokerDetails.isAdmin) — same backend
+  // as above, no separate deployment. Org-wide variants just drop the
+  // scoping param the Lead Portal builders require.
+
+  parCyclesByStatus: (status: "PENDING_QUOTA" | "OPEN" | "PENDING" | "CLOSED") =>
+    `${parBackendUrl}/par-cycles?status=${status}`,
+  parCycleCreate: () => `${parBackendUrl}/par-cycles`,
+  // Same resource edits cycle settings and drives OPEN/CLOSED transitions.
+  parCycleModify: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}`,
+  parGlobalConfig: () => `${parBackendUrl}/meta/configurations`,
+  parAdminTeams: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}/teams`,
+  parAdminSpecialRatingGroups: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/special-rating-groups`,
+  // GET returns SpecialRatingAllocation[] — reuse ParSpecialRatingAllocation,
+  // not ParSpecialRatingQuotaWithName (that one's POST-only, see types.ts).
+  parAdminQuotaGroups: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/special-rating-groups-quota`,
+  parRejectedReviews: (parCycleId: number) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/rejected-reviews`,
+  parAllRatings: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}/par-ratings`,
+  parSyncEmployee: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/sync`,
+  // Restoring a rejected review reuses par360Review's PATCH above, called
+  // here on the reviewee's behalf by an admin — no separate endpoint.
+  // Distinct from parSchedule360Reminders above (a different resource,
+  // gated on isLeadInActiveParCycle, scoped to the caller's own reports).
+  parBulkReminder: (kind: "employee" | "lead" | "special-rating") =>
+    `${parBackendUrl}/reminders/schedule-${kind}-reminders`,
+  // GET every distinct legacy (pre-par-app) cycle, org-wide — the History
+  // tab's merged cycle list, admin-gated the same way as the per-employee
+  // legacy endpoint above.
+  legacyParHistoryCycles: () => `${parBackendUrl}/legacy-par-history-cycles`,
+  // GET every employee's legacy row for one cycle name — the History tab's
+  // legacy drill-down.
+  legacyParHistoryCyclesParticipants: (cycleName: string) =>
+    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service
@@ -514,6 +574,13 @@ export const umtServiceUrls = {
   // PUT — replaces an update's product list (distinct from product-analysis
   // results, which live at updateProductAnalysis above).
   updateProducts: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/products`,
+  // GET — the admin-only Product Management screen's base product catalog,
+  // distinct from the per-update product lists above.
+  baseProducts: `${umtBackendUrl}/update/base-product`,
+  // POST — adds a base product (name/version/lead+ED email/FTP connection details).
+  createBaseProduct: `${umtBackendUrl}/update/product`,
+  // PUT — deprecates an existing base product by name+version.
+  deprecateBaseProduct: `${umtBackendUrl}/update/product/deprecate`,
   // PUT — per-product description/instruction update (only these 3 keys are
   // ever sent), distinct from updateProducts's whole-list replace above.
   updateProductsDetails: (id: string | number) =>

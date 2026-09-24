@@ -45,16 +45,18 @@ const itemFor = (pathname: string) =>
 // Every screen the Leave app can be on. A row must light on all of them, and
 // the group holding it must be open, or the lit row is folded out of sight.
 const LEAVE_URLS: [string, string][] = [
-  ["/me/leave/general", "leave-general"],
-  ["/me/leave/general/apply", "leave-general"],
-  ["/me/leave/general/history", "leave-general"],
-  ["/me/leave/general/reports", "leave-general"],
-  ["/me/leave/sabbatical", "leave-sabbatical"],
-  ["/me/leave/sabbatical/apply", "leave-sabbatical"],
-  ["/me/leave/sabbatical/history", "leave-sabbatical"],
-  ["/me/leave/sabbatical/approve", "leave-sabbatical"],
-  ["/me/leave/sabbatical/approval-history", "leave-sabbatical"],
-  ["/me/leave/sabbatical/report", "leave-sabbatical"],
+  // Leave is one row now, and every screen under it — tab and kind alike —
+  // has to light that row. The kind is two segments deep, which is exactly
+  // what `onPathOrBelow` matching by segment is for.
+  ["/me/leave", "leave-home"],
+  ["/me/leave/apply/general", "leave-home"],
+  ["/me/leave/apply/sabbatical", "leave-home"],
+  ["/me/leave/history/general", "leave-home"],
+  ["/me/leave/history/sabbatical", "leave-home"],
+  ["/me/leave/approvals", "leave-home"],
+  ["/me/leave/approval-history", "leave-home"],
+  ["/me/leave/reports/general", "leave-home"],
+  ["/me/leave/reports/sabbatical", "leave-home"],
 ];
 
 describe("which row is selected", () => {
@@ -96,23 +98,23 @@ describe("which groups are open", () => {
   });
 
   it("does not open a group for a path that merely shares a prefix string", () => {
-    expect(activeGroupIds(sections, "/me/leave/generalization").size).toBe(0);
+    expect(activeGroupIds(sections, "/me/leavers").size).toBe(0);
   });
 });
 
 describe("matching by segment, not by string", () => {
   it("claims a path and everything beneath it", () => {
-    expect(onPathOrBelow("/me/leave/general", "/me/leave/general")).toBe(true);
-    expect(onPathOrBelow("/me/leave/general", "/me/leave/general/apply")).toBe(true);
-    expect(onPathOrBelow("/me/leave/general", "/me/leave/general/apply/")).toBe(true);
+    expect(onPathOrBelow("/me/leave", "/me/leave")).toBe(true);
+    expect(onPathOrBelow("/me/leave", "/me/leave/apply/general")).toBe(true);
+    expect(onPathOrBelow("/me/leave", "/me/leave/apply/general/")).toBe(true);
   });
 
   it("does not claim a longer word starting with it", () => {
-    expect(onPathOrBelow("/me/leave/general", "/me/leave/generalization")).toBe(false);
+    expect(onPathOrBelow("/me/leave", "/me/leavers")).toBe(false);
   });
 
   it("does not claim a sibling", () => {
-    expect(onPathOrBelow("/me/leave/general", "/me/leave/sabbatical/apply")).toBe(false);
+    expect(onPathOrBelow("/me/leave/apply", "/me/leave/history/general")).toBe(false);
   });
 });
 

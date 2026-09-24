@@ -21,9 +21,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
-// Three backends decide who may open what. The queues themselves are covered by
-// their own suites; these cover which of them a person is let into, and that a
-// hidden tab cannot be reached by typing its URL.
+// Both tabs — Needs You and Decided — share one gate id: everything waiting
+// on this person, or already decided, across every claim type. What a person
+// is let into is all-or-nothing now, not tab by tab; the queues themselves are
+// covered by their own suites.
 
 const state = { allow: new Set<string>(), isResolving: false };
 
@@ -52,12 +53,7 @@ function UrlProbe() {
   return <div data-testid="url">{pathname}</div>;
 }
 
-const ALL = [
-  "claim-approval",
-  "claim-approval-expense",
-  "claim-approval-opd",
-  "claim-approval-cc",
-];
+const ALL = ["claim-approval"];
 
 beforeEach(() => {
   state.allow = new Set(ALL);
@@ -76,30 +72,6 @@ function show(initial = "/finance/claim-approval") {
             element={
               <ClaimApprovalTabRoute gateId="claim-approval">
                 <Here what="needs-you" />
-              </ClaimApprovalTabRoute>
-            }
-          />
-          <Route
-            path="expense"
-            element={
-              <ClaimApprovalTabRoute gateId="claim-approval-expense">
-                <Here what="expense" />
-              </ClaimApprovalTabRoute>
-            }
-          />
-          <Route
-            path="opd"
-            element={
-              <ClaimApprovalTabRoute gateId="claim-approval-opd">
-                <Here what="opd" />
-              </ClaimApprovalTabRoute>
-            }
-          />
-          <Route
-            path="cc"
-            element={
-              <ClaimApprovalTabRoute gateId="claim-approval-cc">
-                <Here what="cc" />
               </ClaimApprovalTabRoute>
             }
           />
@@ -133,36 +105,24 @@ describe("landing on the screen", () => {
   });
 });
 
-// One flag of the three is enough to get in, and what you get is only what that
-// flag covers. A lead with no finance role has no OPD queue to look at.
 describe("who is let in", () => {
-  it("offers all five tabs to someone holding everything", async () => {
+  it("offers both tabs to someone who approves anything", async () => {
     show();
-    for (const name of ["Needs you", "Expense claims", "OPD claims", "CC Expenses", "Decided"]) {
+    for (const name of ["Needs you", "Decided"]) {
       expect(await screen.findByRole("tab", { name })).toBeInTheDocument();
     }
   });
 
-  it("withholds OPD from someone who only approves expense claims", async () => {
-    state.allow = new Set(["claim-approval", "claim-approval-expense"]);
+  // Neither Expense claims nor OPD claims nor CC Expenses has a tab here any
+  // more — Needs You and Decided cover every claim type themselves now, and
+  // CC's own approving never lived here at all, only under Credit Card
+  // Expenses.
+  it("offers no per-type tab", async () => {
     show();
     await screen.findByRole("tab", { name: "Needs you" });
-    expect(screen.getByRole("tab", { name: "Expense claims" })).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "OPD claims" })).not.toBeInTheDocument();
-  });
-
-  it("withholds expense from someone who only approves OPD", async () => {
-    state.allow = new Set(["claim-approval", "claim-approval-opd"]);
-    show();
-    await screen.findByRole("tab", { name: "Needs you" });
-    expect(screen.queryByRole("tab", { name: "Expense claims" })).not.toBeInTheDocument();
-  });
-
-  it("withholds CC Expenses from someone who only approves OPD", async () => {
-    state.allow = new Set(["claim-approval", "claim-approval-opd"]);
-    show();
-    await screen.findByRole("tab", { name: "Needs you" });
-    expect(screen.queryByRole("tab", { name: "CC Expenses" })).not.toBeInTheDocument();
+    for (const name of ["Expense claims", "OPD claims", "CC Expenses"]) {
+      expect(screen.queryByRole("tab", { name })).not.toBeInTheDocument();
+    }
   });
 
   it("says so plainly to someone who approves nothing", async () => {
@@ -177,25 +137,14 @@ describe("who is let in", () => {
 // bookmarked from a time when the person did hold the role.
 describe("reaching a tab by its URL", () => {
   it("serves it to someone allowed", async () => {
-    show("/finance/claim-approval/opd");
-    expect(await screen.findByTestId("tab")).toHaveAttribute("data-what", "opd");
+    show("/finance/claim-approval/decided");
+    expect(await screen.findByTestId("tab")).toHaveAttribute("data-what", "decided");
   });
 
-  it("serves the cc tab to someone allowed", async () => {
-    show("/finance/claim-approval/cc");
-    expect(await screen.findByTestId("tab")).toHaveAttribute("data-what", "cc");
-  });
-
-  it("redirects away from one they are not", async () => {
-    state.allow = new Set(["claim-approval", "claim-approval-expense"]);
-    show("/finance/claim-approval/opd");
-    expect(await screen.findByTestId("tab")).toHaveAttribute("data-what", "needs-you");
-    expect(screen.getByTestId("url")).toHaveTextContent("/finance/claim-approval/needs-you");
-  });
-
-  it("explains when there is nowhere to send them", async () => {
+  it("redirects away when nobody's role opens either tab", async () => {
     state.allow = new Set();
-    show("/finance/claim-approval/opd");
+    show("/finance/claim-approval/decided");
+    expect(screen.queryByTestId("tab")).not.toBeInTheDocument();
     expect(await screen.findByText(/don't approve claims/)).toBeInTheDocument();
   });
 });
@@ -207,8 +156,8 @@ describe("while the backends are still answering", () => {
   it("leaves a deep link where it is", async () => {
     state.isResolving = true;
     state.allow = new Set();
-    show("/finance/claim-approval/opd");
-    expect(await screen.findByTestId("url")).toHaveTextContent("/finance/claim-approval/opd");
+    show("/finance/claim-approval/decided");
+    expect(await screen.findByTestId("url")).toHaveTextContent("/finance/claim-approval/decided");
     expect(screen.queryByText(/don't approve claims/)).not.toBeInTheDocument();
   });
 

@@ -29,16 +29,15 @@ export const ME_APPS: readonly MenuApp[] = [
     icon: TreePalmIcon,
     purpose: "Apply for and track leave; leads and people-ops approve and report.",
     items: [
-      // Two entries by kind of leave, each opening on tabs for everything you
-      // can do with that kind. General is the everyday path; a sabbatical is a
-      // once-in-years thing, so it gets its own entry rather than a tab in
-      // every group.
+      // ONE entry. It used to be two, split by kind of leave, which put a
+      // sabbatical — a once-in-years thing — level with the leave people book
+      // every month, and repeated three tab names across the pair. The kind is
+      // now a toggle inside the tabs that offer both; see leaveTabs.ts.
       //
       // Roles are decided by features/leave/api/useLeaveGate, not by `requires`,
-      // because the leave backend has its own privilege vocabulary. An entry
+      // because the leave backend has its own privilege vocabulary. The entry
       // appears when any tab inside it does.
-      { id: "leave-general", label: "General", desc: "Apply for leave, track your own, and report on your team.", path: "/me/leave/general" },
-      { id: "leave-sabbatical", label: "Sabbatical", desc: "Apply for a long, planned break, and approve or report on them.", path: "/me/leave/sabbatical" },
+      { id: "leave-home", label: "Leave", desc: "Apply for leave, track your own, approve sabbaticals, and report on your team.", path: "/me/leave" },
     ],
   },
   // Moved out of its own Workspace perspective, which existed for this one

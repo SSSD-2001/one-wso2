@@ -237,37 +237,9 @@ export function ExpenseApprovalReview({
               // `flexShrink: 0` so a card keeps its natural height inside the
               // scrolling list rather than compressing and clipping itself.
               <Card key={i} variant="outlined" sx={{ bgcolor: "action.hover", p: 2, flexShrink: 0 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.03em" }}>
-                    EXPENSE ITEM {i + 1}
-                  </Typography>
-                  <Tooltip
-                    describeChild
-                    arrow
-                    title={t.receiptUrl ? "View or download the receipt" : "No receipt attached"}
-                  >
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={t.receiptUrl ? `View receipt for expense item ${i + 1}` : "No receipt attached"}
-                        disabled={!t.receiptUrl}
-                        onClick={() => viewReceipt(t.receiptUrl!)}
-                        sx={{
-                          borderRadius: 1,
-                          bgcolor: "grey.500",
-                          color: "white",
-                          "&:hover": { bgcolor: "grey.700" },
-                          "&.Mui-disabled": {
-                            bgcolor: "action.disabledBackground",
-                            color: "action.disabled",
-                          },
-                        }}
-                      >
-                        <ReceiptTextIcon size={14} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Stack>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.03em" }}>
+                  EXPENSE ITEM {i + 1}
+                </Typography>
 
                 <Box sx={{ display: "flex", gap: 3, mt: 1.5, flexWrap: "wrap" }}>
                   <Stack spacing={1.5} sx={{ flex: 1, minWidth: 240 }}>
@@ -279,6 +251,30 @@ export function ExpenseApprovalReview({
                       <Box sx={{ flex: 2 }}>
                         <ItemLabel>Job Number</ItemLabel>
                         <Typography sx={{ fontSize: 13 }}>{t.travelJobNumber ?? "N/A"}</Typography>
+                        {/* Its own row, right under Job Number — absent
+                            rather than disabled when there is nothing to
+                            open, since older claims can carry a line with no
+                            stored receipt. One button, not a view/download
+                            pair: ReceiptViewer carries its own Download in
+                            the dialog's footer. */}
+                        {t.receiptUrl && (
+                          <Tooltip describeChild arrow title="View or download the receipt">
+                            <IconButton
+                              size="small"
+                              aria-label={`View receipt for expense item ${i + 1}`}
+                              onClick={() => viewReceipt(t.receiptUrl!)}
+                              sx={{
+                                mt: 1,
+                                borderRadius: 1,
+                                bgcolor: "grey.500",
+                                color: "white",
+                                "&:hover": { bgcolor: "grey.700" },
+                              }}
+                            >
+                              <ReceiptTextIcon size={14} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </Box>
                     <Box>

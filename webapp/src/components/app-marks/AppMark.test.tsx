@@ -55,7 +55,7 @@ describe("app marks", () => {
     vi.resetModules();
     window.config = {
       ...(window.config ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { expenseSubmitter: true, umt: true },
+      ONE_WSO2_PREVIEW_FEATURES: { umt: true },
     } as Window["config"];
     const { PERSPECTIVES: allPerspectives } = await import("@constants/perspectives");
     const marked = allPerspectives.filter((p) => appMark(p.key)).map((p) => p.key);

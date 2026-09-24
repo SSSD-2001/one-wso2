@@ -374,7 +374,9 @@ describe("correcting a bill", () => {
       expect(screen.getAllByRole("button", { name: "Remove bill" })).toHaveLength(1),
     );
     // The claim total follows the edit rather than double-counting it.
-    expect(screen.getByRole("button", { name: "Submit claim (Rs. 250.00)" })).toBeInTheDocument();
+    // Shows twice — the bill's own card and the "This claim" stat — so this
+    // just confirms both agree, rather than picking one.
+    expect(screen.getAllByText("Rs. 250.00").length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -412,7 +414,7 @@ describe("bills from further back than last year", () => {
     fireEvent.change(screen.getByPlaceholderText("0.00"), { target: { value: "400" } });
     fireEvent.click(screen.getByRole("button", { name: "Save bill" }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Submit claim (Rs. 400.00)" })).toBeInTheDocument(),
+      expect(screen.getAllByText("Rs. 400.00").length).toBeGreaterThanOrEqual(2),
     );
   });
 
@@ -466,6 +468,16 @@ describe("bills carried over from a resubmit", () => {
     show();
     await screen.findByText(/No bills yet/);
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+// FinanceShell has no back affordance of its own, and this form has no other
+// way out but the sidebar without one.
+describe("leaving without submitting", () => {
+  it("offers a way back to the claims list", async () => {
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Back to claims" }));
+    expect(navigate).toHaveBeenCalledWith("/me/claims/opd");
   });
 });
 

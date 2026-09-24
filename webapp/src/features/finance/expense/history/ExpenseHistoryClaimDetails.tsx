@@ -280,33 +280,6 @@ export function ExpenseHistoryClaimDetails({
                     EXPENSE ITEM {i + 1}
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-                    {/* One icon rather than "Receipt" plus View and Download:
-                        the viewer it opens carries its own Download, so the
-                        second button was a duplicate. */}
-                    <Tooltip
-                      describeChild
-                      arrow
-                      title={line.receiptUrl ? "View or download the receipt" : "No receipt attached"}
-                    >
-                      <IconButton
-                        size="small"
-                        aria-label={line.receiptUrl ? "View receipt" : "No receipt attached"}
-                        disabled={!line.receiptUrl}
-                        onClick={() => viewReceipt(line.receiptUrl!)}
-                        sx={{
-                          borderRadius: 1,
-                          bgcolor: "grey.500",
-                          color: "white",
-                          "&:hover": { bgcolor: "grey.700" },
-                          "&.Mui-disabled": {
-                            bgcolor: "action.disabledBackground",
-                            color: "action.disabled",
-                          },
-                        }}
-                      >
-                        <ReceiptTextIcon size={14} />
-                      </IconButton>
-                    </Tooltip>
                     {editable && (
                       <Tooltip describeChild arrow title="Edit this expense">
                         <IconButton
@@ -332,6 +305,34 @@ export function ExpenseHistoryClaimDetails({
                       <Box sx={{ flex: 2 }}>
                         <ItemLabel>Job Number</ItemLabel>
                         <Typography sx={{ fontSize: 13 }}>{line.travelJobNumber ?? "N/A"}</Typography>
+                        {/* One icon rather than "Receipt" plus View and
+                            Download: the viewer it opens carries its own
+                            Download, so the second button was a duplicate. */}
+                        <Tooltip
+                          describeChild
+                          arrow
+                          title={line.receiptUrl ? "View or download the receipt" : "No receipt attached"}
+                        >
+                          <IconButton
+                            size="small"
+                            aria-label={line.receiptUrl ? "View receipt" : "No receipt attached"}
+                            disabled={!line.receiptUrl}
+                            onClick={() => viewReceipt(line.receiptUrl!)}
+                            sx={{
+                              mt: 1,
+                              borderRadius: 1,
+                              bgcolor: "grey.500",
+                              color: "white",
+                              "&:hover": { bgcolor: "grey.700" },
+                              "&.Mui-disabled": {
+                                bgcolor: "action.disabledBackground",
+                                color: "action.disabled",
+                              },
+                            }}
+                          >
+                            <ReceiptTextIcon size={14} />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </Box>
                     <Box>

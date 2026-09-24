@@ -55,6 +55,8 @@ import {
   type UmtUpdateSummary,
 } from "../api/umtUpdates";
 import { useUmtUpdates } from "../api/useUmtUpdates";
+import { formatCalendarDate, formatDate } from "../lib/umtDates";
+import { gridCellContentSx } from "../lib/umtGrid";
 import { writePersistedSelectedTab } from "../lib/umtLocalState";
 import UmtCreateUpdateDialog from "../components/UmtCreateUpdateDialog";
 import UmtShell from "../components/UmtShell";
@@ -401,14 +403,6 @@ const updatesGridSx = {
     boxShadow: "-2px 0 4px rgba(0, 0, 0, 0.15)",
   },
 } as const;
-const gridCellContentSx = {
-  alignItems: "center",
-  display: "flex",
-  minHeight: "100%",
-  py: 0.75,
-  width: "100%",
-} as const;
-
 function renderCell(row: UmtUpdateSummary, key: ColumnKey): ReactNode {
   switch (key) {
     case "id": return <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.id}</Typography>;
@@ -470,7 +464,7 @@ function EtaCell({ row }: { row: UmtUpdateSummary }) {
         <Tooltip title={label} key={label}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", whiteSpace: "nowrap" }}>
             <Box sx={{ bgcolor: color, borderRadius: "50%", height: 8, width: 8 }} />
-            <Typography variant="body2">{formatDate(date)}</Typography>
+            <Typography variant="body2">{formatCalendarDate(date)}</Typography>
           </Stack>
         </Tooltip>
       ))}
@@ -521,13 +515,6 @@ function Artifacts({ values }: { values: string[] }) {
   );
 }
 
-function formatDate(value?: string | null): string {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
 function humanize(value: string): string {
   return value.replaceAll("_", " ").replace(/([a-z])([A-Z])/g, "$1 $2");
 }
@@ -552,7 +539,7 @@ function csvValue(row: UmtUpdateSummary, key: ColumnKey): string {
     case "isHotfix": return row.isHotfix ? "Hotfix" : "Update";
     case "lifecycleState": return row.lifecycleState ?? "";
     case "assignedTo": return row.assignedTo ?? "";
-    case "eta": return [row.bestCaseEstimate, row.mostLikelyEstimate, row.worstCaseEstimate].map(formatDate).join("; ");
+    case "eta": return [row.bestCaseEstimate, row.mostLikelyEstimate, row.worstCaseEstimate].map(formatCalendarDate).join("; ");
     case "issueType": return row.issueType ?? "";
     case "securityInternalGitIssue": return row.securityInternalGitIssue ?? "";
     case "lifecycle": return row.lifecycle ?? "";

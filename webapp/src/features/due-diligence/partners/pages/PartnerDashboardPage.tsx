@@ -56,7 +56,7 @@ import ApprovalTab from "../components/ApprovalTab";
 import AdminPdfReport from "../components/AdminPdfReport";
 import ConfirmationDialog, {
   type ConfirmationContent,
-} from "@features/due-diligence/shared/components/ConfirmationDialog";
+} from "@components/confirmation-dialog/ConfirmationDialog";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
 
 const TAB_NAMES = ["profile", "finance", "legal", "approvalsummary"] as const;

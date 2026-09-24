@@ -19,6 +19,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router";
 import type { ReactNode } from "react";
 
 // The eligibility boundaries below were computed, not tuned until green: with
@@ -148,9 +149,19 @@ beforeEach(() => {
 // and who may reach them, is covered in LeaveTabRouting.test.tsx.
 function show(body: ReactNode = <SabbaticalApplyTab />) {
   return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <NotificationsProvider>{body}</NotificationsProvider>
-    </QueryClientProvider>,
+    // Real routes, not just a Router: a successful submit navigates to the
+    // sabbatical half of My history, and without a target to land on the
+    // navigation is unobservable and the test cannot fail.
+    <MemoryRouter initialEntries={["/me/leave/apply/sabbatical"]}>
+      <QueryClientProvider client={new QueryClient()}>
+        <NotificationsProvider>
+          <Routes>
+            <Route path="/me/leave/apply/sabbatical" element={<>{body}</>} />
+            <Route path="/me/leave/history/sabbatical" element={<div>my sabbaticals</div>} />
+          </Routes>
+        </NotificationsProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -625,6 +636,14 @@ describe("what the screen says after a successful submit", () => {
     submitMutate.mock.calls[0][1].onSuccess();
   }
 
+  // Requested behaviour: show them the request they just made. Untested until
+  // now — the harness rendered the component with no routes, so there was
+  // nowhere for a navigation to land and removing it changed nothing.
+  it("lands on the sabbatical half of My history", async () => {
+    await submitAndSucceed();
+    expect(await screen.findByText("my sabbaticals")).toBeInTheDocument();
+  });
+
   // The thunk's wording, without the exclamation mark the Apply form hardcodes
   // (leave.ts:150-156 vs GeneralLeave.tsx:147). Same event, two strings, and
   // that difference is the source's — asserted exactly so it stays that way.
@@ -638,11 +657,20 @@ describe("what the screen says after a successful submit", () => {
     expect(alert?.className).toMatch(/AlertSuccess|standardSuccess|filledSuccess/);
   });
 
+  // Doubles as the stay-put guard: with the gate refusing, the form must still
+  // be here to clear. Remove the gate check in historyPathAfterSubmit and this
+  // fails, because the form navigates away instead.
+  //
+  // Asserted with the navigation refused, which is the only case where the form
+  // survives to be looked at — a visitor who lands on My history has unmounted
+  // it. The clearing still matters there: it is the same form they stay on.
   it("clears the form so a second request cannot be sent by accident", async () => {
+    state.canSee = false;
     await submitAndSucceed();
     await waitFor(() =>
       expect(screen.getByLabelText(/Leave request start date/)).toHaveValue(""),
     );
     expect(screen.getByLabelText(/Leave request end date/)).toHaveValue("");
+    state.canSee = true;
   });
 })

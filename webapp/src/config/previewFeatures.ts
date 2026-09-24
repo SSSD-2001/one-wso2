@@ -24,7 +24,7 @@
  * branching the build or holding work out of `main`.
  *
  * ```js
- * ONE_WSO2_PREVIEW_FEATURES: { expenseSubmitter: true },
+ * ONE_WSO2_PREVIEW_FEATURES: { financeOverview: true },
  * ```
  *
  * ## Absent means off
@@ -55,38 +55,12 @@
  */
 export type PreviewFeature =
   /**
-   * Finance → Expense Claims → New Claim, the standalone submitter page added
-   * in #43. Held back because Me → Claims already offers a new-claim flow and
-   * the two entry points need reconciling before both are shown.
-   */
-  | "expenseSubmitter"
-  /**
-   * Finance → OPD Claims, the app's own front door under the Finance
-   * perspective. Only Claim History is migrated so far, and it has never run
-   * against the real OPD backend — the development account is refused by it —
-   * so the group is held back as a whole rather than screen by screen.
-   */
-  | "opdClaims"
-  /**
-   * Finance → Expense Claims, the whole app — New Claim, Claim History, and
-   * Lead/Finance Approvals. Held back from the Finance rail as a group rather
-   * than item by item: this is one section going away, not one route inside
-   * it becoming unavailable while the rest stays reachable.
-   */
-  | "expenseClaims"
-  /**
    * Finance → Overview, the new dashboards section above the claim apps.
    * Held back as a whole: it is new ground (an OPD Claims dashboard and a
    * Credit Card Expenses dashboard, with an expense dashboard to follow),
    * and it has not run against a real account yet.
    */
   | "financeOverview"
-  /**
-   * People Ops → Performance, par-app's Employee Portal ported in #61. Held back until
-   * the Lead Portal, Admin Portal, Report Chain and F2F follow it over — see
-   * docs/ported-apps/par-app.md §7.
-   */
-  | "par"
   /**
    * The whole UMT perspective — rail entry, launcher tile, landing-page
    * option, favourites eligibility, and the `/umt` route. UMT is still being

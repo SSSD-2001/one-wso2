@@ -20,9 +20,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
 vi.mock("@asgardeo/react", () => ({ useAsgardeo: () => ({ isSignedIn: true }) }));
+
+vi.mock("../../components/FinanceShell", () => ({
+  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
 
 const base = {
   ccNumber: "4444",
@@ -127,10 +132,6 @@ vi.mock("../useCcMutations", () => ({
   }),
 }));
 
-vi.mock("../../components/FinanceShell", () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
 const { default: CcApprovePage } = await import("./CcApprovePage");
 const { NotificationsProvider } = await import("@context/notifications/NotificationsContext");
 
@@ -142,7 +143,6 @@ beforeEach(() => {
   approveCalls.length = 0;
 });
 
-/** The per-row checkboxes only — the grid's header has a select-all. */
 /** The filters live behind one trigger, as ApproveFilterPopover.tsx has them. */
 const openFilters = async (u: ReturnType<typeof userEvent.setup>) =>
   u.click(await screen.findByRole("button", { name: /^Filter( \d+)?$/ }));
@@ -151,6 +151,11 @@ const rowBoxes = async () =>
   (await screen.findAllByRole("checkbox")).filter(
     (b) => b.getAttribute("name") === "select_row",
   );
+
+const asLead = async (u: ReturnType<typeof userEvent.setup>) =>
+  u.click(screen.getByRole("button", { name: "As lead" }));
+const asFinance = async (u: ReturnType<typeof userEvent.setup>) =>
+  u.click(screen.getByRole("button", { name: "As finance" }));
 
 function show() {
   return render(
@@ -222,8 +227,7 @@ describe("an edit still in flight", () => {
 
 // index.tsx:83-87 derives one mode with finance winning, :198 offers the
 // switcher only to someone holding both roles, and :116-127 makes the mode
-// decide the queue. None of this was covered: both suites above hold a single
-// role, which is exactly the case the mode leaves unchanged.
+// decide the queue.
 describe("someone who is both a lead and a finance approver", () => {
   beforeEach(() => {
     state.access = ["lead", "finance"];
@@ -234,15 +238,15 @@ describe("someone who is both a lead and a finance approver", () => {
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0));
     // Finance's queue spans both stages.
     expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2
-    expect(screen.getByLabelText("Approve Role")).toHaveTextContent("Approve as Finance");
+    expect(screen.getByRole("button", { name: "As lead" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "As finance" })).toBeInTheDocument();
   });
 
   it("switching to lead narrows the queue to its own first-stage rows", async () => {
     show();
     const user = userEvent.setup();
-    await screen.findByLabelText("Approve Role");
-    await user.click(screen.getByLabelText("Approve Role"));
-    await user.click(await screen.findByRole("option", { name: "Approve as Lead" }));
+    await screen.findByRole("button", { name: "As lead" });
+    await asLead(user);
 
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2)); // header + 1
     // And the row it kept is the one it can act on.
@@ -252,8 +256,7 @@ describe("someone who is both a lead and a finance approver", () => {
   it("approves as the selected role, not both at once", async () => {
     show();
     const user = userEvent.setup();
-    await user.click(screen.getByLabelText("Approve Role"));
-    await user.click(await screen.findByRole("option", { name: "Approve as Lead" }));
+    await asLead(user);
 
     await user.click((await rowBoxes())[0]);
     await user.click(screen.getByRole("button", { name: /Approve/ }));
@@ -264,19 +267,19 @@ describe("someone who is both a lead and a finance approver", () => {
   });
 });
 
-describe("the approve-role switcher", () => {
+describe("the approve-role toggle", () => {
   it("is not offered to a lead who is not also finance", async () => {
     state.access = ["lead"];
     show();
     await screen.findAllByRole("checkbox");
-    expect(screen.queryByLabelText("Approve Role")).toBeNull();
+    expect(screen.queryByRole("button", { name: "As lead" })).not.toBeInTheDocument();
   });
 
   it("is not offered to finance alone", async () => {
     state.access = ["finance"];
     show();
     await screen.findAllByRole("checkbox");
-    expect(screen.queryByLabelText("Approve Role")).toBeNull();
+    expect(screen.queryByRole("button", { name: "As finance" })).not.toBeInTheDocument();
   });
 });
 
@@ -613,13 +616,11 @@ describe("a selection made in one queue", () => {
     await user.click((await rowBoxes())[1]);
     expect(screen.getByRole("button", { name: /^Approve 1/ })).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("Approve Role"));
-    await user.click(await screen.findByRole("option", { name: "Approve as Lead" }));
+    await asLead(user);
     // Back again: the row is visible and selectable once more. Without the
     // clear, the old tick is still there and Approve is live for a selection
     // the reader last saw in a different queue.
-    await user.click(screen.getByLabelText("Approve Role"));
-    await user.click(await screen.findByRole("option", { name: "Approve as Finance" }));
+    await asFinance(user);
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 
@@ -664,5 +665,17 @@ describe("an empty result", () => {
     show();
     expect(await screen.findByText("No submissions to approve.")).toBeInTheDocument();
     expect(screen.getByText("All submissions have been Approved.")).toBeInTheDocument();
+  });
+});
+
+describe("the detail panel", () => {
+  it("shows the selected transaction's detail alongside the grid", async () => {
+    show();
+    await screen.findAllByRole("checkbox");
+    // "Hotel" is ambiguous — it's the description in both the grid row and
+    // the detail panel — so this checks the comment instead, which only the
+    // detail panel renders.
+    expect(await screen.findByText("Client trip")).toBeInTheDocument();
+    expect(screen.getByText("Travel")).toBeInTheDocument();
   });
 });

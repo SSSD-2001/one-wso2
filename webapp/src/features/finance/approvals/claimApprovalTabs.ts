@@ -23,47 +23,33 @@
 // alongside the things you do for yourself. Submitting a claim and looking up
 // what you submitted stay there; only the deciding moves.
 //
-// Credit card's own Approve Submissions stays under Me too — this tab is an
-// additional entry point onto the same queue, the way Expense and OPD kept
-// theirs, not a replacement for it.
+// Just two tabs, both spanning every claim type: the per-type Expense claims
+// and OPD claims tabs that used to sit beside Needs You and Decided were
+// retired once those two grew the same filters (by employee, by claim id) and
+// the same lead/finance toggle the per-type tabs offered — there was nothing
+// left for a second, narrower view to do.
+//
+// Credit card is the one type with no tab here at all: its own Approve
+// Submissions screen under Credit Card Expenses is the ONLY place to approve
+// a card submission.
 
 /** Permissions, resolved by `useFinanceGate().canSee`. */
 export type ClaimApprovalGateId =
   /** Any claim at all is approvable by this person. */
-  | "claim-approval"
-  /** Expense claims, at either stage — the two flags are independent. */
-  | "claim-approval-expense"
-  /** OPD claims. There is no lead stage: the backend's role 555 or nobody. */
-  | "claim-approval-opd"
-  /** Credit card, at either stage — the same two privileges the standalone Approve Submissions screen checks. */
-  | "claim-approval-cc";
+  "claim-approval";
 
 export interface ClaimApprovalTabDef {
   segment: string;
   label: string;
   gateId: ClaimApprovalGateId;
-  /**
-   * Claims the rest of the page's height instead of growing with its content —
-   * what `FinanceShell`'s own `fill` prop does for the standalone CC screen.
-   * The CC tab reuses that screen's split grid/detail panel unchanged, and a
-   * DataGrid needs a bounded ancestor height to size itself against; the
-   * other tabs are plain lists that scroll with the page and don't need it.
-   */
-  fill?: boolean;
 }
 
 export const CLAIM_APPROVAL_PATH = "/finance/claim-approval";
 
 export const CLAIM_APPROVAL_TABS: readonly ClaimApprovalTabDef[] = [
-  // The default, and the question anyone opens this screen with. Grouped by
-  // claim type rather than merged, so each group keeps the column that matters
-  // to it and nothing is flattened to fit a shared shape.
+  // The question anyone opens this screen with — every claim waiting on them,
+  // across both apps, one stage at a time via its own toggle.
   { segment: "needs-you", label: "Needs you", gateId: "claim-approval" },
-  // The per-type views, for working through one kind in volume. Same screens as
-  // before, with their own Pending / Approved / Rejected split and filters.
-  { segment: "expense", label: "Expense claims", gateId: "claim-approval-expense" },
-  { segment: "opd", label: "OPD claims", gateId: "claim-approval-opd" },
-  { segment: "cc", label: "CC Expenses", gateId: "claim-approval-cc", fill: true },
   // Named "Decided", not "Decided by you": the expense DTO records
   // `financeApproverEmail` but has no lead equivalent — only `leadApprovedDate`
   // and `leadRejectedDate` — so a lead's own decisions cannot be told apart

@@ -19,20 +19,27 @@
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
   Skeleton,
+  Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableRow,
+  Tabs,
+  TextField,
   Typography,
 } from "@wso2/oxygen-ui";
+import { useDebouncedValue } from "@hooks/useDebouncedValue";
+import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
 import { describeError } from "../util/financeError";
 import { formatNice, money } from "../util/financeFormat";
 import { useExpenseAppData, useExpenseClaims, useExpenseEmployees } from "../expense/useExpense";
-import { useOpdClaims, useOpdUserInfo } from "../opd/useOpd";
+import { useOpdClaims, useOpdEmployees, useOpdUserInfo } from "../opd/useOpd";
 import { OPD_ROLE, opdHasRole } from "../opd/opdTypes";
 import type { ExpenseClaim } from "../expense/expenseTypes";
 import type { OpdClaim } from "../opd/opdTypes";
@@ -62,6 +69,31 @@ export default function DecidedTab() {
   // this arrives, same as the standalone Lead/Finance Approvals screens do.
   const employees = useExpenseEmployees();
   const nameFor = useMemo(() => makeNameResolver(employees.data), [employees.data]);
+  // Also the "Filter by email" dropdown's options, merged with OPD's own
+  // directory: an OPD claimant may never have touched expense claims, and the
+  // other way round, so neither list alone would offer everyone this queue
+  // could actually show.
+  const opdEmployees = useOpdEmployees(canOpd);
+  const employeeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...(employees.data ?? []).map((e) => e.workEmail),
+          ...(opdEmployees.data ?? []).map((e) => e.workEmail),
+        ]),
+      ),
+    [employees.data, opdEmployees.data],
+  );
+  const employeesLoading = employees.isLoading || opdEmployees.isLoading;
+
+  // FilterHolder.tsx-style narrowing: a claim of a known employee or id,
+  // without which the only way to find one is to scroll the whole company's.
+  const [employee, setEmployee] = useState<string | null>(null);
+  const [claimId, setClaimId] = useState("");
+  // Debounced before it reaches the queries: they key on the whole payload, so
+  // the raw value would fire a search per keystroke.
+  const claimIdFilter = useDebouncedValue(claimId.trim());
+  const ids = claimIdFilter ? [claimIdFilter] : undefined;
 
   // A lead's decided queue is the claims they forwarded or turned down, so it is
   // scoped to their reports the same way their pending queue is.
@@ -77,23 +109,44 @@ export default function DecidedTab() {
       status: canExpenseFinance
         ? ["PENDING_FINANCE", "LEAD_REJECTED"]
         : ["PENDING_FINANCE", "APPROVED", "FINANCE_REJECTED", "LEAD_REJECTED"],
+      email: employee ?? undefined,
+      ids,
     },
     canLead && Boolean(myEmail),
   );
   const financeDecided = useExpenseClaims(
-    { status: ["APPROVED", "FINANCE_REJECTED"] },
+    { status: ["APPROVED", "FINANCE_REJECTED"], email: employee ?? undefined, ids },
     canExpenseFinance,
   );
-  const opdDecided = useOpdClaims({ status: ["APPROVED", "REJECTED"] }, canOpd);
+  const opdDecided = useOpdClaims(
+    { status: ["APPROVED", "REJECTED"], email: employee ?? undefined, ids },
+    canOpd,
+  );
 
   const [expenseTarget, setExpenseTarget] = useState<ExpenseClaim | null>(null);
   const [opdTarget, setOpdTarget] = useState<OpdClaim | null>(null);
+  // Splits this already-decided set by outcome, the same "Pending / Approved /
+  // Rejected" tabs Claim Approval's OPD tab offers — minus Pending, since
+  // nothing here is still pending by definition. A lead's forwarded claim
+  // (PENDING_FINANCE) is not rejected, so it sorts under Approved alongside
+  // the Outcome chip's own "Sent to finance" label — every decided row lands
+  // in exactly one tab, none of them hidden.
+  const [outcome, setOutcome] = useState<DecidedOutcome>("approved");
 
   const expenseRows = useMemo(
-    () => [...(financeDecided.data ?? []), ...(leadDecided.data ?? [])],
-    [financeDecided.data, leadDecided.data],
+    () =>
+      [...(financeDecided.data ?? []), ...(leadDecided.data ?? [])].filter(
+        (c) => isRejectedOutcome(c.statusDetails.status) === (outcome === "rejected"),
+      ),
+    [financeDecided.data, leadDecided.data, outcome],
   );
-  const opdRows = opdDecided.data ?? [];
+  const opdRows = useMemo(
+    () =>
+      (opdDecided.data ?? []).filter(
+        (c) => isRejectedOutcome(c.statusDetails.status) === (outcome === "rejected"),
+      ),
+    [opdDecided.data, outcome],
+  );
 
   // `isLoading`, not `isPending`. React Query leaves a DISABLED query pending
   // for good — it never fetches, so it never resolves — and every queue here is
@@ -101,14 +154,18 @@ export default function DecidedTab() {
   // screen spun forever for anyone holding less than all three, which is most
   // people. `isLoading` is pending AND fetching, so a disabled query reads as
   // not loading, which is what it is.
-  const loading =
-    expenseAppData.isLoading ||
-    opdUserInfo.isLoading ||
-    leadDecided.isLoading ||
-    financeDecided.isLoading ||
-    opdDecided.isLoading;
+  //
+  // Split from the queues' own loading: `email`/`ids` are part of every query
+  // KEY below, so typing a filter starts a brand new query and this would
+  // otherwise blank the whole tab — the Approved/Rejected tabs and the filter
+  // fields themselves included — losing focus mid-keystroke. Only
+  // identity/role resolution gates the whole tab; a queue reloading after a
+  // filter change shows its loading state in place of the list, below still-
+  // mounted controls.
+  const identityLoading = expenseAppData.isLoading || opdUserInfo.isLoading;
+  const queuesLoading = leadDecided.isLoading || financeDecided.isLoading || opdDecided.isLoading;
 
-  if (loading) return <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 1.5 }} />;
+  if (identityLoading) return <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 1.5 }} />;
 
   // Same review screen Needs You opens, `pending={false}`: Approve/Reject are
   // replaced by the status chip, which opens the activity trail instead — the
@@ -156,24 +213,6 @@ export default function DecidedTab() {
     (opdDecided.isError && describeError(opdDecided.error)) ||
     null;
 
-  // "Nothing has been decided" is a claim about the data, so it is only made
-  // when the data actually arrived. With a failure in hand the alert stands
-  // alone — saying both at once tells the reader two different things.
-  if (expenseRows.length === 0 && opdRows.length === 0 && !failure) {
-    return (
-      <Box>
-        {failure && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            Some queues couldn&apos;t be loaded. {failure}
-          </Alert>
-        )}
-        <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
-          Nothing has been decided yet.
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
     <Box>
       {failure && (
@@ -181,7 +220,50 @@ export default function DecidedTab() {
           Some queues couldn&apos;t be loaded. {failure}
         </Alert>
       )}
-      {expenseRows.length === 0 && opdRows.length === 0 ? null : (
+
+      <Tabs
+        value={outcome}
+        onChange={(_e, v) => setOutcome(v as DecidedOutcome)}
+        sx={{ mb: 2, minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none", fontSize: 13, fontWeight: 600 } }}
+      >
+        <Tab value="approved" label="Approved" />
+        <Tab value="rejected" label="Rejected" />
+      </Tabs>
+
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: "wrap", rowGap: 1.5 }}>
+        <Autocomplete
+          size="small"
+          options={employeeOptions}
+          value={employee}
+          onChange={(_e, v) => setEmployee(v)}
+          loading={employeesLoading}
+          disabled={employeesLoading}
+          sx={{ minWidth: 260 }}
+          renderInput={(params) => (
+            <TextField {...withLoadingAdornment(params, employeesLoading)} label="Filter by email" />
+          )}
+        />
+        <TextField
+          size="small"
+          label="Filter by claim ID"
+          value={claimId}
+          onChange={(e) => setClaimId(e.target.value)}
+          sx={{ minWidth: 200 }}
+        />
+      </Stack>
+
+      {/* "Nothing has been decided" is a claim about the data, so it is only
+          made when the data actually arrived — a failure stands alone,
+          saying both at once tells the reader two different things. */}
+      {queuesLoading ? (
+        <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 1.5 }} />
+      ) : expenseRows.length === 0 && opdRows.length === 0 ? (
+        !failure && (
+          <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
+            {employee || claimIdFilter ? "No claims match these filters." : `Nothing ${outcome} yet.`}
+          </Typography>
+        )
+      ) : (
       <Box sx={{ overflowX: "auto" }}>
         <Table size="small">
           <TableBody>
@@ -279,8 +361,14 @@ function Heading({ label, count }: { label: string; count: number }) {
   );
 }
 
+type DecidedOutcome = "approved" | "rejected";
+
+function isRejectedOutcome(status: string | null | undefined): boolean {
+  return Boolean(status?.includes("REJECTED"));
+}
+
 function Outcome({ status }: { status: string | null }) {
-  const rejected = Boolean(status?.includes("REJECTED"));
+  const rejected = isRejectedOutcome(status);
   const forwarded = status === "PENDING_FINANCE";
   return (
     <Chip

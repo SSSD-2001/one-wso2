@@ -63,6 +63,14 @@ export function useSubmitLeave() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["leaves"] }),
         qc.invalidateQueries({ queryKey: ["leave-entitlement"] }),
+        // The app config too, and not for the sabbatical flags: its
+        // `cachedEmails.optionalMails` IS the copyEmailList of the caller's
+        // most recent request, recomputed server-side on every read
+        // (leave-app/backend/utils.bal:648-691). The request just posted
+        // changed it. Without this the query's 30-minute staleTime serves the
+        // PREVIOUS list, so editing who to notify, submitting, and coming back
+        // showed the people from the request before.
+        qc.invalidateQueries({ queryKey: ["leave-app-config"] }),
       ]);
     },
   });

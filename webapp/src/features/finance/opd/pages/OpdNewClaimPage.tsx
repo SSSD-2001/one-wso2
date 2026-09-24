@@ -31,9 +31,10 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { CheckIcon, EyeIcon, PencilIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, CheckIcon, PencilIcon, ReceiptTextIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isOpdBackendConfigured, opdServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -250,6 +251,17 @@ function NewClaimBody() {
 
   return (
     <Stack spacing={1.75}>
+      {/* FinanceShell has no back affordance of its own, and this form is
+          reached with no other way out but the sidebar. */}
+      <IconButton
+        size="small"
+        aria-label="Back to claims"
+        onClick={() => navigate(claimTabPath("opd"))}
+        sx={{ alignSelf: "flex-start" }}
+      >
+        <ArrowLeftIcon size={18} />
+      </IconButton>
+
       {/* NewClaim.tsx:129-172,382 — only offered when the backend still reports
           a last-year balance; otherwise there is nothing to claim against. */}
       {lastYearSummary && (
@@ -352,7 +364,7 @@ function NewClaimBody() {
                     {it.comment}
                   </Typography>
                   <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                    {formatNice(it.date)} · {it.receiptUrl ? "receipt attached" : "no receipt"}
+                    {formatNice(it.date)}
                   </Typography>
                 </Box>
                 <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
@@ -366,24 +378,30 @@ function NewClaimBody() {
                     One button, not a view/download pair — ReceiptViewer carries
                     its own Download in the dialog's footer. */}
                 {it.receiptUrl && (
-                  <IconButton
-                    size="small"
-                    aria-label={`View or download receipt for ${it.comment}`}
-                    title="View or download receipt"
-                    onClick={() => {
-                      const fileName = it.receiptUrl;
-                      if (!fileName) return;
-                      setViewing(() => async () =>
-                        fetchReceiptObjectUrl(
-                          opdServiceUrls.receiptFile(fileName),
-                          await getAccessToken(),
-                        ),
-                      );
-                    }}
-                    sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
-                  >
-                    <EyeIcon size={14} />
-                  </IconButton>
+                  <Tooltip describeChild title="View or download the receipt" arrow>
+                    <IconButton
+                      size="small"
+                      aria-label={`View or download receipt for ${it.comment}`}
+                      onClick={() => {
+                        const fileName = it.receiptUrl;
+                        if (!fileName) return;
+                        setViewing(() => async () =>
+                          fetchReceiptObjectUrl(
+                            opdServiceUrls.receiptFile(fileName),
+                            await getAccessToken(),
+                          ),
+                        );
+                      }}
+                      sx={{
+                        borderRadius: 1,
+                        bgcolor: "grey.500",
+                        color: "white",
+                        "&:hover": { bgcolor: "grey.700" },
+                      }}
+                    >
+                      <ReceiptTextIcon size={14} />
+                    </IconButton>
+                  </Tooltip>
                 )}
                 {/* AccessMode.EDIT_DELETE (NewClaim.tsx:185) — a bill can be
                     corrected in place, not just removed and retyped. */}
@@ -421,7 +439,7 @@ function NewClaimBody() {
           disabled={items.length === 0 || submit.isPending}
           sx={{ fontWeight: 600 }}
         >
-          {submit.isPending ? "Submitting…" : `Submit claim (${money(claimedInList)})`}
+          {submit.isPending ? "Submitting…" : "Submit claim"}
         </Button>
       </Box>
 

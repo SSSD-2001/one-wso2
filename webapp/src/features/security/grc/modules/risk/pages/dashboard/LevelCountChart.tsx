@@ -18,16 +18,24 @@ import { BarChart } from "@wso2/oxygen-ui-charts-react";
 import { Typography } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
 import type { RiskLevelCount } from "../../api/riskApi";
-import { LEVEL_FALLBACK_COLORS, LEVEL_LABELS, LEVEL_ORDER } from "./constants";
+import { CHART_ANIMATION_MS, LEVEL_FALLBACK_COLORS, LEVEL_LABELS, LEVEL_ORDER, type OnDrillDown } from "./constants";
+import ChartDrillDown from "./ChartDrillDown";
 
 interface LevelCountChartProps {
   data: RiskLevelCount[];
+  // Present only where a click can be turned into a Risk Register deep link
+  // (the org-wide dashboard, not the read-only per-register embed elsewhere).
+  onDrillDown?: OnDrillDown;
+  // The register the dashboard itself is currently scoped to (0 = all
+  // registers), folded into the click's filter so a register-scoped
+  // dashboard drills down scoped the same way.
+  registerId?: number;
 }
 
 // "Count vs. Risk Level" — one bar per residual level in its severity color.
 // Each level is its own series sharing a stack so every category renders a
 // single centered bar; the axis names the level, so the legend is hidden.
-export default function LevelCountChart({ data }: LevelCountChartProps): JSX.Element {
+export default function LevelCountChart({ data, onDrillDown, registerId }: LevelCountChartProps): JSX.Element {
   if (data.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -48,10 +56,11 @@ export default function LevelCountChart({ data }: LevelCountChartProps): JSX.Ele
     name: LEVEL_LABELS[level],
     fill: byLevel.get(level)!.color_code || LEVEL_FALLBACK_COLORS[level],
     stackId: "level",
-    label: { position: "top", fontSize: 12, fill: "#888888" },
+    label: { position: "top" as const, fontSize: 12, fill: "#888888" },
+    onClick: onDrillDown ? () => onDrillDown({ level, teamId: registerId || undefined }) : undefined,
   }));
 
-  return (
+  const chart = (
     <BarChart
       data={rows}
       xAxisDataKey="level"
@@ -59,8 +68,24 @@ export default function LevelCountChart({ data }: LevelCountChartProps): JSX.Ele
       height={420}
       maxBarSize={64}
       legend={{ show: false }}
-      isAnimationActive={false}
+      animationDuration={CHART_ANIMATION_MS}
       margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
     />
+  );
+
+  if (!onDrillDown) return chart;
+
+  return (
+    <ChartDrillDown
+      what="risk level"
+      onDrillDown={onDrillDown}
+      targets={levels.map((level) => ({
+        key: level,
+        label: `${LEVEL_LABELS[level]} risks`,
+        filter: { level, teamId: registerId || undefined },
+      }))}
+    >
+      {chart}
+    </ChartDrillDown>
   );
 }

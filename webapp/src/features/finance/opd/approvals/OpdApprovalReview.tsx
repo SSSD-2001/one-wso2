@@ -171,40 +171,40 @@ export function OpdApprovalReview({
         <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0, overflowY: "auto", pr: 0.5 }}>
           {claim.transactions.map((t, i) => (
             <Card key={i} variant="outlined" sx={{ bgcolor: "action.hover", p: 2, flexShrink: 0 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.03em" }}>
-                  OPD ITEM {i + 1}
-                </Typography>
-                <Tooltip
-                  describeChild
-                  arrow
-                  title={t.receiptUrl ? "View or download the receipt" : "No receipt attached"}
-                >
-                  <span>
-                    <IconButton
-                      size="small"
-                      aria-label={t.receiptUrl ? `View receipt for OPD item ${i + 1}` : "No receipt attached"}
-                      disabled={!t.receiptUrl}
-                      onClick={() => viewReceipt(t.receiptUrl!)}
-                      sx={{
-                        borderRadius: 1,
-                        bgcolor: "grey.500",
-                        color: "white",
-                        "&:hover": { bgcolor: "grey.700" },
-                        "&.Mui-disabled": { bgcolor: "action.disabledBackground", color: "action.disabled" },
-                      }}
-                    >
-                      <ReceiptTextIcon size={14} />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </Stack>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.03em" }}>
+                OPD ITEM {i + 1}
+              </Typography>
 
               <Box sx={{ display: "flex", gap: 3, mt: 1.5, flexWrap: "wrap" }}>
                 <Stack spacing={1.5} sx={{ flex: 1, minWidth: 240 }}>
                   <Box>
                     <ItemLabel>Bill Date</ItemLabel>
-                    <Typography sx={{ fontSize: 13 }}>{formatNice(t.date)}</Typography>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Typography sx={{ fontSize: 13 }}>{formatNice(t.date)}</Typography>
+                      {/* Right next to Bill Date, its own element — absent
+                          rather than disabled when there is nothing to open,
+                          since older claims can carry a bill with no stored
+                          receipt. One button, not a view/download pair:
+                          ReceiptViewer carries its own Download in the
+                          dialog's footer. */}
+                      {t.receiptUrl && (
+                        <Tooltip describeChild arrow title="View or download the receipt">
+                          <IconButton
+                            size="small"
+                            aria-label={`View receipt for OPD item ${i + 1}`}
+                            onClick={() => viewReceipt(t.receiptUrl!)}
+                            sx={{
+                              borderRadius: 1,
+                              bgcolor: "grey.500",
+                              color: "white",
+                              "&:hover": { bgcolor: "grey.700" },
+                            }}
+                          >
+                            <ReceiptTextIcon size={14} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Stack>
                   </Box>
                   <Box>
                     <ItemLabel>Description</ItemLabel>

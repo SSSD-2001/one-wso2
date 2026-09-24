@@ -16,7 +16,6 @@
 
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import {
   Alert,
   Box,
@@ -26,38 +25,36 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   Skeleton,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
   Typography,
 } from "@wso2/oxygen-ui";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isOpdBackendConfigured } from "@config/apiConfig";
-import { StatusChip, opdStatusMeta } from "../../components/FinanceChips";
-import { describeError } from "../../util/financeError";
-import { money, formatNice } from "../../util/financeFormat";
+import { money } from "../../util/financeFormat";
 import { CLAIMS_PATH } from "../../claims/claimsTabs";
 import { useOpdAppData, useOpdClaims, useOpdUserInfo } from "../useOpd";
 import { OpdHistoryClaimDetails } from "../history/OpdHistoryClaimDetails";
 import { OpdClaimActivityDrawer } from "../history/OpdClaimActivityDrawer";
+import { OpdHistoryFilters } from "../history/OpdHistoryFilters";
+import { OpdHistoryTable } from "../history/OpdHistoryTable";
 import {
-  OPD_FILTERABLE_STATUSES,
-  opdStatusFilter,
-  type OpdClaim,
-  type OpdClaimRange,
-  type OpdClaimStatus,
-} from "../opdTypes";
+  emptyOpdHistoryFilters,
+  hasActiveOpdFilters,
+  toOpdSearchPayload,
+  type OpdHistoryFilters as Filters,
+} from "../history/opdHistoryTypes";
+import { OPD_ROLE, opdHasRole, type OpdClaim } from "../opdTypes";
 
 // The OPD tab of Claims. Reports its own backend's connectivity, since the
 // screen spans two and either may be missing.
+//
+// Shares its filters, table and search payload with Finance → OPD Claims →
+// Claim History — that screen read the same claims (ClaimDetails.tsx:same
+// data, no submitter/finance split for OPD), so there was nothing left for it
+// to do once this tab covered it, and consolidating means one implementation
+// to keep right instead of two. What is added here, and absent there, is the
+// allowance strip and the resubmit flow — Finance never resubmits someone
+// else's claim on their behalf.
 export default function OpdClaimsTab() {
   if (!isOpdBackendConfigured()) {
     return (
@@ -67,11 +64,38 @@ export default function OpdClaimsTab() {
       </Alert>
     );
   }
+  return <OpdClaimsBody />;
+}
+
+function OpdClaimsBody() {
+  const userInfo = useOpdUserInfo();
+  // The OPD backend refuses the whole app to anyone holding neither of its
+  // roles, so this is what tells an ineligible account why the screen is
+  // empty rather than leaving them with a bare "no claims" — and it holds
+  // back the allowance strip too, which would otherwise show a claim summary
+  // nobody here can actually spend against.
+  //
+  // `isError` is excluded deliberately. A failed lookup leaves `data`
+  // undefined, and `opdHasRole` reads that as "no role" — so without this
+  // the screen would tell someone their account is ineligible when all that
+  // happened is a request failed.
+  if (!userInfo.isLoading && !userInfo.isError && !opdHasRole(userInfo.data, OPD_ROLE.CLAIM_SUBMITTER)) {
+    return (
+      <Alert severity="info">
+        OPD claims aren&apos;t available for your account (they&apos;re limited to permanent
+        employees at eligible locations).
+      </Alert>
+    );
+  }
+
+  // A fill column, not plain flow: the list below can run long, and without
+  // this the whole page scrolled — carrying the tab switcher and the New
+  // claim button away with it — instead of just the table.
   return (
-    <>
+    <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <AllowanceStrip />
       <HistoryBody />
-    </>
+    </Box>
   );
 }
 
@@ -101,6 +125,7 @@ function AllowanceStrip() {
         gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
         gap: 1.25,
         mb: 2,
+        flexShrink: 0,
       }}
     >
       <Allowance label="Annual limit" value={money(summary.totalClaimLimit)} />
@@ -135,63 +160,29 @@ function Allowance({
 
 function HistoryBody() {
   const userInfo = useOpdUserInfo();
-  const currentYear = new Date().getFullYear();
+  const [filters, setFilters] = useState<Filters>(() => emptyOpdHistoryFilters());
   // The claim being read in full — the details panel takes over the page,
   // the same way Finance → OPD Claims → Claim History slides it over the
   // list.
   const [selected, setSelected] = useState<OpdClaim | null>(null);
-  // Independent of `selected`: the activity trail opens straight from the
-  // detail view's own header button.
+  // Independent of `selected`: the activity trail opens straight from a
+  // row's status chip, or from the detail view's own header button.
   const [activityClaim, setActivityClaim] = useState<OpdClaim | null>(null);
   const [resubmitting, setResubmitting] = useState<OpdClaim | null>(null);
   const navigate = useNavigate();
 
-  // FilterHolder.tsx — the source filters on a year RANGE, a status and a claim
-  // id, not a single year. A claim from two years ago was unreachable here.
-  const [range, setRange] = useState<OpdClaimRange>("This Year");
-  const [customStart, setCustomStart] = useState(currentYear - 1);
-  const [customEnd, setCustomEnd] = useState(currentYear);
-  const [status, setStatus] = useState<OpdClaimStatus | "All">("All");
-  const [claimId, setClaimId] = useState("");
-  // Debounced before it reaches the query: useOpdClaims keys on the whole
-  // payload, so the raw value would fire a search per keystroke — and on the
-  // finance view that search spans the company. The source batches the same
-  // fields behind an Apply button (FilterHolder.tsx:53,81-82).
-  const claimIdFilter = useDebouncedValue(claimId.trim());
-
-  // :51-65 — This Year and Last Year are single years; Custom spans the two
-  // pickers.
-  const startYear =
-    range === "This Year"
-      ? currentYear
-      : range === "Last Year"
-        ? currentYear - 1
-        : customStart;
-  const endYear =
-    range === "This Year"
-      ? currentYear
-      : range === "Last Year"
-        ? currentYear - 1
-        : customEnd;
-
-  const email = userInfo.data?.workEmail ?? undefined;
-  const claims = useOpdClaims(
-    {
-      email,
-      startYear,
-      endYear,
-      // :75 — a claim id is sent as a one-element list, and only when given.
-      ids: claimIdFilter ? [claimIdFilter] : undefined,
-      status: opdStatusFilter(status === "All" ? [] : [status]),
-    },
-    Boolean(email),
-  );
-
-  const years = useMemo(() => {
-    const out: number[] = [];
-    for (let y = currentYear; y >= currentYear - 4; y--) out.push(y);
-    return out;
-  }, [currentYear]);
+  const email = userInfo.data?.workEmail;
+  const payload = useMemo(() => toOpdSearchPayload(filters, email), [filters, email]);
+  // Gated on the role as well as the email — see OpdClaimHistoryScreen.tsx,
+  // which this mirrors: once user-info lands, a non-submitter's visit would
+  // otherwise fire a POST /search-claims the backend was always going to
+  // refuse, before the alert below had a chance to render.
+  const canViewClaims =
+    !userInfo.isLoading &&
+    !userInfo.isError &&
+    Boolean(email) &&
+    opdHasRole(userInfo.data, OPD_ROLE.CLAIM_SUBMITTER);
+  const claims = useOpdClaims(payload, canViewClaims);
 
   // Same review screen Finance → OPD Claims → Claim History uses, taking
   // over this tab the same way it takes over that screen — bills in full,
@@ -256,198 +247,45 @@ function HistoryBody() {
   }
 
   return (
-    <Box>
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1.5}
-        sx={{ mb: 2, flexWrap: "wrap", rowGap: 1.5 }}
-      >
-        <FormControl size="small">
-          <InputLabel id="opd-range">Period</InputLabel>
-          <Select
-            labelId="opd-range"
-            label="Period"
-            value={range}
-            onChange={(e) => setRange(e.target.value as OpdClaimRange)}
-            sx={{ minWidth: 140 }}
-          >
-            {(["This Year", "Last Year", "Custom"] as OpdClaimRange[]).map(
-              (r) => (
-                <MenuItem key={r} value={r}>
-                  {r}
-                </MenuItem>
-              ),
-            )}
-          </Select>
-        </FormControl>
+    <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <OpdHistoryFilters filters={filters} onChange={setFilters} />
 
-        {range === "Custom" && (
-          <>
-            <FormControl size="small">
-              <InputLabel id="opd-start">Start Year</InputLabel>
-              <Select
-                labelId="opd-start"
-                label="Start Year"
-                value={customStart}
-                onChange={(e) => setCustomStart(Number(e.target.value))}
-                sx={{ minWidth: 110 }}
-              >
-                {/* Each end of the range only offers the valid side of the
-                    other. The source leaves this open (FilterHolder.tsx:207
-                    disables Apply only on a null year), which lets a start
-                    after the end reach the payload and return nothing. */}
-                {years
-                  .filter((y) => y <= customEnd)
-                  .map((y) => (
-                    <MenuItem key={y} value={y}>
-                      {y}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small">
-              <InputLabel id="opd-end">End Year</InputLabel>
-              <Select
-                labelId="opd-end"
-                label="End Year"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(Number(e.target.value))}
-                sx={{ minWidth: 110 }}
-              >
-                {years
-                  .filter((y) => y >= customStart)
-                  .map((y) => (
-                    <MenuItem key={y} value={y}>
-                      {y}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-          </>
-        )}
-
-        <FormControl size="small">
-          <InputLabel id="opd-status">Status</InputLabel>
-          <Select
-            labelId="opd-status"
-            label="Status"
-            value={status}
-            onChange={(e) =>
-              setStatus(e.target.value as OpdClaimStatus | "All")
-            }
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="All">All</MenuItem>
-            {/* PENDING_OLD is not offered — "Pending Finance" already covers it
-                through opdStatusFilter (FilterBox.tsx:82-84). */}
-            {OPD_FILTERABLE_STATUSES.map((st) => (
-              <MenuItem key={st} value={st}>
-                {opdStatusMeta(st).label}
-              </MenuItem>
+      {/* The scrolling region: the filters above stay fixed, only this —
+          the skeleton, the empty state, or the table — scrolls when it
+          runs long. */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {userInfo.isLoading || claims.isLoading ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} variant="rectangular" height={48} sx={{ borderRadius: 1 }} />
             ))}
-          </Select>
-        </FormControl>
-
-        <TextField
-          size="small"
-          label="Filter by claim ID"
-          value={claimId}
-          onChange={(e) => setClaimId(e.target.value)}
-          sx={{ minWidth: 200 }}
-        />
-      </Stack>
-
-      {userInfo.isLoading || claims.isLoading ? (
-        <Stack spacing={1}>
-          {[0, 1, 2].map((i) => (
-            <Skeleton
-              key={i}
-              variant="rectangular"
-              height={48}
-              sx={{ borderRadius: 1 }}
-            />
-          ))}
-        </Stack>
-      ) : claims.isError ? (
-        <Alert severity="error">
-          Couldn't load your claims. {describeError(claims.error)}
-        </Alert>
-      ) : (claims.data?.length ?? 0) === 0 ? (
-        <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
-          {startYear === endYear
-            ? `No OPD claims on record for ${startYear}.`
-            : `No OPD claims on record for ${startYear}–${endYear}.`}
-        </Typography>
-      ) : (
-        <Box
-          sx={{
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 1.5,
-            overflow: "hidden",
-          }}
-        >
-          <Table size="small">
-            <TableHead>
-              <TableRow
-                sx={{
-                  "& th": {
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "text.secondary",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  },
-                }}
-              >
-                <TableCell>Claim ID</TableCell>
-                <TableCell>Submitted</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">&nbsp;</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {claims.data!.map((c) => {
-                const meta = opdStatusMeta(c.statusDetails.status);
-                return (
-                  <TableRow key={c.id} hover>
-                    <TableCell sx={{ fontSize: 12.5, fontFamily: "monospace" }}>
-                      {c.id}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12.5 }}>
-                      {formatNice(c.createdDate)}
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{
-                        fontSize: 12.5,
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {money(c.totalAmount)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip label={meta.label} color={meta.color} />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => setSelected(c)}
-                        sx={{ textTransform: "none", fontWeight: 600 }}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
-      )}
+          </Box>
+        ) : userInfo.isError || claims.isError ? (
+          <ErrorNotice
+            error={userInfo.error ?? claims.error}
+            // Retry whichever query actually failed: the claims search is
+            // disabled until an email arrives, so retrying it alone would
+            // leave a user-info failure permanently on screen with nothing
+            // to re-run.
+            onRetry={() => {
+              if (userInfo.isError) void userInfo.refetch();
+              if (claims.isError) void claims.refetch();
+            }}
+            retrying={userInfo.isFetching || claims.isFetching}
+          >
+            Couldn&apos;t load your claims.
+          </ErrorNotice>
+        ) : (claims.data?.length ?? 0) === 0 ? (
+          <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
+            {hasActiveOpdFilters(filters)
+              ? "No claims match these filters."
+              : "You haven't submitted an OPD claim yet."}
+          </Typography>
+        ) : (
+          <OpdHistoryTable claims={claims.data!} onView={setSelected} onShowActivity={setActivityClaim} />
+        )}
+      </Box>
+      <OpdClaimActivityDrawer claim={activityClaim} onClose={() => setActivityClaim(null)} />
     </Box>
   );
 }

@@ -48,6 +48,9 @@ import {
   exceedsMaxDuration,
   maxDurationWeeks,
 } from "../util/sabbatical";
+import { useNavigate } from "react-router";
+import { useLeaveGate } from "../api/useLeaveGate";
+import { historyPathAfterSubmit } from "../leaveTabs";
 
 // Sabbatical leave application — ported from view/SabbaticalLeave/ApplyTab.tsx
 // (528 lines) and its wrapper SabbaticalLeave.tsx.
@@ -72,6 +75,8 @@ export default function SabbaticalApplyTab() {
 }
 
 function SabbaticalApply() {
+  const navigate = useNavigate();
+  const gate = useLeaveGate();
 
   const userInfo = useLeaveUserInfo();
   const appConfig = useLeaveAppConfig();
@@ -237,6 +242,9 @@ function SabbaticalApply() {
           setAckLead(false);
           setAckPolicy(false);
           setAckResignation(false);
+          // Same as the general form: show them what they just submitted.
+          const landing = historyPathAfterSubmit("sabbatical", gate.canSee);
+          if (landing) navigate(landing);
         },
         onError: (err) => showError(describeError(err)),
       },

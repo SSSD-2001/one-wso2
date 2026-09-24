@@ -19,23 +19,28 @@ import { Box, Typography } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
 import type { RegisterTreatmentCount } from "../../api/riskApi";
 import {
+  CHART_ANIMATION_MS,
   TREATMENT_COLORS,
   TREATMENT_LABELS,
   TREATMENT_ORDER,
   labelColorOn,
   stackedSegmentAccessor,
+  type OnDrillDown,
 } from "./constants";
 
 interface TreatmentByRegisterChartProps {
   data: RegisterTreatmentCount[];
+  onDrillDown?: OnDrillDown;
 }
 
 const CHART_HEIGHT = 320;
+import ChartDrillDown from "./ChartDrillDown";
 
 // Stacked bar of open risks per BU/register, segmented by treatment strategy.
 // Zero counts are left undefined so recharts skips the segment and its label.
 export default function TreatmentByRegisterChart({
   data,
+  onDrillDown,
 }: TreatmentByRegisterChartProps): JSX.Element {
   if (data.length === 0) {
     return (
@@ -45,13 +50,18 @@ export default function TreatmentByRegisterChart({
     );
   }
 
-  const rows = new Map<string, Record<string, string | number>>();
+  // Keyed on register_id, not register_name: risk_team.name carries no
+  // UNIQUE constraint, so two distinct registers can share a display name.
+  // Keying on the name would merge their bars into one with only one id to
+  // drill into, silently dropping the other register's risks from the click.
+  const rows = new Map<number, Record<string, string | number>>();
   const present = new Set<string>();
   for (const d of data) {
-    if (!rows.has(d.register_name)) rows.set(d.register_name, { register: d.register_name });
-    rows.get(d.register_name)![d.treatment_strategy] = d.count;
+    if (!rows.has(d.register_id)) rows.set(d.register_id, { register: d.register_name, registerId: d.register_id });
+    rows.get(d.register_id)![d.treatment_strategy] = d.count;
     present.add(d.treatment_strategy);
   }
+  const rowsArr = [...rows.values()];
 
   const bars = TREATMENT_ORDER.filter((s) => present.has(s)).map((strategy) => ({
     dataKey: strategy,
@@ -66,9 +76,16 @@ export default function TreatmentByRegisterChart({
       valueAccessor: stackedSegmentAccessor,
       formatter: (value: unknown) => (Number(value) > 0 ? Number(value) : ""),
     },
+    onClick: onDrillDown
+      ? (_: unknown, index: number) => {
+          const row = rowsArr[index];
+          if (!row || !row[strategy]) return;
+          onDrillDown({ treatment: strategy, teamId: row.registerId as number });
+        }
+      : undefined,
   }));
 
-  return (
+  const chart = (
     <Box sx={{ display: "flex", alignItems: "stretch", gap: 0.5 }}>
       {/* Custom axis title, centered on the whole chart height (bars + legend)
           rather than recharts' internal plot-only centering, which reads too
@@ -93,16 +110,30 @@ export default function TreatmentByRegisterChart({
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <BarChart
-          data={[...rows.values()]}
+          data={rowsArr}
           xAxisDataKey="register"
           bars={bars}
           height={CHART_HEIGHT}
           maxBarSize={64}
-          isAnimationActive={false}
+          animationDuration={CHART_ANIMATION_MS}
           margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
           yAxis={{ show: true }}
         />
       </Box>
     </Box>
+  );
+
+  if (!onDrillDown) return chart;
+
+  return (
+    <ChartDrillDown what="register and treatment strategy" onDrillDown={onDrillDown} targets={rowsArr.flatMap((row) =>
+        TREATMENT_ORDER.filter((strategy) => row[strategy]).map((strategy) => ({
+          key: `${String(row.registerId)}-${strategy}`,
+          label: `${TREATMENT_LABELS[strategy] ?? strategy} risks in ${String(row.register)}`,
+          filter: { treatment: strategy, teamId: row.registerId as number },
+        })),
+      )}>
+      {chart}
+    </ChartDrillDown>
   );
 }

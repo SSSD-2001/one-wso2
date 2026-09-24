@@ -17,7 +17,7 @@
 
 import { useState } from "react";
 import { Box, Button, Card, Divider, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { ArrowLeftIcon, EyeIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, HistoryIcon, ReceiptTextIcon } from "@wso2/oxygen-ui-icons-react";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { opdServiceUrls } from "@config/apiConfig";
 import { StatusChip, opdStatusMeta } from "../../components/FinanceChips";
@@ -84,6 +84,7 @@ export function OpdHistoryClaimDetails({
         <Typography sx={{ fontSize: 15, fontWeight: 700, fontFamily: "monospace" }}>
           {claim.id}
         </Typography>
+        <StatusChip label={meta.label} color={meta.color} />
         <Box sx={{ flex: 1 }} />
         {/* :101-114 — only a rejected claim can be taken up again. */}
         {onResubmit && claim.statusDetails.status === "REJECTED" && (
@@ -97,10 +98,15 @@ export function OpdHistoryClaimDetails({
             Resubmit as New Claim
           </Button>
         )}
-        <Button size="small" onClick={onShowActivity} sx={{ textTransform: "none" }}>
-          Claim activity
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<HistoryIcon size={14} />}
+          onClick={onShowActivity}
+          sx={{ textTransform: "none", fontWeight: 600 }}
+        >
+          Activity
         </Button>
-        <StatusChip label={meta.label} color={meta.color} />
       </Stack>
 
       {/* Finance's words, when there are any. Above the bills rather than
@@ -127,39 +133,54 @@ export function OpdHistoryClaimDetails({
             height and the whole page scrolls instead. */}
         <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0, overflowY: "auto", pr: 0.5 }}>
         {claim.transactions.map((bill, i) => (
-          <Card key={`${bill.date}-${i}`} variant="outlined" sx={{ p: 2 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.02em" }}>
-                {`OPD ITEM ${i + 1}`}
-              </Typography>
-              {/* Absent rather than disabled when there is nothing to open —
-                  older claims can carry a bill with no stored receipt. One
-                  button, not a view/download pair: ReceiptViewer carries its
-                  own Download in the dialog's footer. */}
-              {bill.receiptUrl && (
-                <Tooltip title="View or download receipt">
-                  <IconButton
-                    size="small"
-                    aria-label={`View or download receipt for OPD ITEM ${i + 1}`}
-                    onClick={() => openReceipt(bill.receiptUrl!)}
-                  >
-                    <EyeIcon size={16} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Stack>
+          // `flexShrink: 0` so each bill keeps its natural height inside the
+          // scrolling list above. Without it, the cards are flex children of
+          // a bounded-height column and compress to fit instead of the list
+          // scrolling — their second row (date/description/amount) squeezed
+          // out rather than staying readable and pushing the list to scroll.
+          <Card key={`${bill.date}-${i}`} variant="outlined" sx={{ p: 2, flexShrink: 0 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.02em" }}>
+              {`OPD ITEM ${i + 1}`}
+            </Typography>
             <Box
               sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "auto 1fr auto" },
-                gap: 2,
-                alignItems: "start",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 3,
+                alignItems: "flex-start",
                 mt: 1.5,
               }}
             >
               <Figure label="Bill Date" value={formatNice(bill.date)} />
               <Figure label="Description" value={bill.comment || "—"} />
-              <Box sx={{ justifySelf: { sm: "end" }, textAlign: { sm: "right" } }}>
+              {/* Its own element, right after Description and still on the
+                  left side of the card — absent rather than disabled when
+                  there is nothing to open, since older claims can carry a
+                  bill with no stored receipt. One button, not a view/download
+                  pair: ReceiptViewer carries its own Download in the dialog's
+                  footer. */}
+              {bill.receiptUrl && (
+                <Tooltip describeChild title="View or download the receipt" arrow>
+                  <IconButton
+                    size="small"
+                    aria-label={`View or download receipt for OPD ITEM ${i + 1}`}
+                    onClick={() => openReceipt(bill.receiptUrl!)}
+                    sx={{
+                      mt: 2.5,
+                      borderRadius: 1,
+                      bgcolor: "grey.500",
+                      color: "white",
+                      "&:hover": { bgcolor: "grey.700" },
+                    }}
+                  >
+                    <ReceiptTextIcon size={14} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {/* Pushes Amount to the far right, whatever room the fields
+                  before it take up. */}
+              <Box sx={{ flex: 1 }} />
+              <Box sx={{ textAlign: "right" }}>
                 <FieldLabel>Amount</FieldLabel>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", mt: 0.25 }}>
                   {money(bill.amount)}

@@ -19,22 +19,28 @@
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
-  Chip,
   Skeleton,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableRow,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
+import { useDebouncedValue } from "@hooks/useDebouncedValue";
+import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
 import { describeError } from "../util/financeError";
 import { money } from "../util/financeFormat";
 import { useExpenseAppData, useExpenseClaims, useExpenseEmployees } from "../expense/useExpense";
-import { useOpdClaims, useOpdUserInfo } from "../opd/useOpd";
+import { useOpdClaims, useOpdEmployees, useOpdUserInfo } from "../opd/useOpd";
 import { opdStatusFilter, opdHasRole, OPD_ROLE } from "../opd/opdTypes";
-import type { ExpenseClaim } from "../expense/expenseTypes";
+import type { ApproverView, ExpenseClaim } from "../expense/expenseTypes";
 import type { OpdClaim } from "../opd/opdTypes";
 import { ExpenseApprovalReview } from "../expense/approvals/ExpenseApprovalReview";
 import { makeNameResolver } from "../expense/approvals/expenseApprovalTypes";
@@ -48,6 +54,11 @@ import { byLongestWait, daysWaiting, waitingLabel, waitingSince } from "./claimW
 // receipts and a stage. Merging them would mean one column set that fits
 // neither, and an Amount column mixing currencies whose total means nothing.
 //
+// The expense group is itself one stage at a time for someone holding both —
+// the same "As lead / As finance" toggle the Expense claims tab offers,
+// rather than the two stages merged into one list with a per-row chip saying
+// which is which.
+//
 // Longest wait first within each group, because the claim someone is chasing is
 // the one to show first.
 
@@ -60,29 +71,78 @@ export default function NeedsYouTab() {
   const canOpd = opdHasRole(opdUserInfo.data, OPD_ROLE.FINANCE_APPROVER);
   const myEmail = expenseAppData.data?.userInfo.workEmail ?? undefined;
 
+  // Same toggle the Expense claims tab offers, for the same reason: someone
+  // holding both flags decides one stage at a time, not a merged list. Opens
+  // on whichever stage this person actually holds; someone with one flag
+  // never sees the switch at all — there is nothing to switch to.
+  //
+  // Derived-with-override, the same as CcApprovePage's own `role`: `picked`
+  // is null until someone chooses, and the default is computed fresh every
+  // render rather than captured once. `canLead` reads false on the render
+  // before expense app data has arrived — a plain `useState(canLead ? ... )`
+  // would freeze on that false and never reconsider it once the data landed,
+  // leaving a dual-role approver stuck on Finance.
+  const [picked, setPicked] = useState<ApproverView | null>(null);
+  const expenseStage: ApproverView = picked ?? (canLead ? "LEAD" : "FINANCE");
+
   // For the review screen's name display — falls back to the bare email until
   // this arrives, same as the standalone Lead/Finance Approvals screens do.
   const employees = useExpenseEmployees();
   const nameFor = useMemo(() => makeNameResolver(employees.data), [employees.data]);
+  // Also the "Filter by email" dropdown's options, merged with OPD's own
+  // directory: an OPD claimant may never have touched expense claims, and the
+  // other way round, so neither list alone would offer everyone this queue
+  // could actually show.
+  const opdEmployees = useOpdEmployees(canOpd);
+  const employeeOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...(employees.data ?? []).map((e) => e.workEmail),
+          ...(opdEmployees.data ?? []).map((e) => e.workEmail),
+        ]),
+      ),
+    [employees.data, opdEmployees.data],
+  );
+  const employeesLoading = employees.isLoading || opdEmployees.isLoading;
+
+  // FilterHolder.tsx-style narrowing: a claim of a known employee or id,
+  // without which the only way to find one is to scroll the whole company's.
+  const [employee, setEmployee] = useState<string | null>(null);
+  const [claimId, setClaimId] = useState("");
+  // Debounced before it reaches the queries: they key on the whole payload, so
+  // the raw value would fire a search per keystroke.
+  const claimIdFilter = useDebouncedValue(claimId.trim());
+  const ids = claimIdFilter ? [claimIdFilter] : undefined;
 
   // Two independent flags, so a person can be waiting on both stages at once.
   // `leadEmail` scopes the lead queue to their own reports; the finance queue is
   // company-wide and needs no scoping.
   const leadQueue = useExpenseClaims(
-    { leadEmail: myEmail, status: ["PENDING_LEAD"] },
+    { leadEmail: myEmail, status: ["PENDING_LEAD"], email: employee ?? undefined, ids },
     canLead && Boolean(myEmail),
   );
-  const financeQueue = useExpenseClaims({ status: ["PENDING_FINANCE"] }, canExpenseFinance);
+  const financeQueue = useExpenseClaims(
+    { status: ["PENDING_FINANCE"], email: employee ?? undefined, ids },
+    canExpenseFinance,
+  );
   // opdStatusFilter adds PENDING_OLD: claims filed before the status was split
   // carry it, and asking for PENDING alone hides them from the queue entirely.
-  const opdQueue = useOpdClaims({ status: opdStatusFilter(["PENDING"]) }, canOpd);
+  const opdQueue = useOpdClaims(
+    { status: opdStatusFilter(["PENDING"]), email: employee ?? undefined, ids },
+    canOpd,
+  );
 
   const [expenseTarget, setExpenseTarget] = useState<ExpenseClaim | null>(null);
   const [opdTarget, setOpdTarget] = useState<OpdClaim | null>(null);
 
   const expenseRows = useMemo(
-    () => byLongestWait([...(leadQueue.data ?? []), ...(financeQueue.data ?? [])], waitingSince),
-    [leadQueue.data, financeQueue.data],
+    () =>
+      byLongestWait(
+        expenseStage === "LEAD" ? (leadQueue.data ?? []) : (financeQueue.data ?? []),
+        waitingSince,
+      ),
+    [expenseStage, leadQueue.data, financeQueue.data],
   );
   const opdRows = useMemo(
     () => byLongestWait(opdQueue.data ?? [], waitingSince),
@@ -95,14 +155,18 @@ export default function NeedsYouTab() {
   // screen spun forever for anyone holding less than all three, which is most
   // people. `isLoading` is pending AND fetching, so a disabled query reads as
   // not loading, which is what it is.
-  const loading =
-    expenseAppData.isLoading ||
-    opdUserInfo.isLoading ||
-    leadQueue.isLoading ||
-    financeQueue.isLoading ||
-    opdQueue.isLoading;
+  //
+  // Split from the queues' own loading: `email`/`ids` are part of every query
+  // KEY below, so typing a filter starts a brand new query and this would
+  // otherwise blank the whole tab — the toggle and the filter fields
+  // themselves included — losing focus mid-keystroke. Only identity/role
+  // resolution gates the whole tab; a queue reloading after a filter change
+  // shows its loading state in place of the list, below still-mounted
+  // controls.
+  const identityLoading = expenseAppData.isLoading || opdUserInfo.isLoading;
+  const queuesLoading = leadQueue.isLoading || financeQueue.isLoading || opdQueue.isLoading;
 
-  if (loading) {
+  if (identityLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5 }} />;
   }
 
@@ -168,9 +232,50 @@ export default function NeedsYouTab() {
         </Alert>
       )}
 
-      {total === 0 && failures.length === 0 ? (
+      {canLead && canExpenseFinance && (
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={expenseStage}
+          onChange={(_e, v) => v && setPicked(v as ApproverView)}
+          sx={{ mb: 2 }}
+        >
+          <ToggleButton value="LEAD" sx={{ textTransform: "none" }}>
+            As lead
+          </ToggleButton>
+          <ToggleButton value="FINANCE" sx={{ textTransform: "none" }}>
+            As finance
+          </ToggleButton>
+        </ToggleButtonGroup>
+      )}
+
+      <Stack direction="row" spacing={1.5} sx={{ mb: 2, flexWrap: "wrap", rowGap: 1.5 }}>
+        <Autocomplete
+          size="small"
+          options={employeeOptions}
+          value={employee}
+          onChange={(_e, v) => setEmployee(v)}
+          loading={employeesLoading}
+          disabled={employeesLoading}
+          sx={{ minWidth: 260 }}
+          renderInput={(params) => (
+            <TextField {...withLoadingAdornment(params, employeesLoading)} label="Filter by email" />
+          )}
+        />
+        <TextField
+          size="small"
+          label="Filter by claim ID"
+          value={claimId}
+          onChange={(e) => setClaimId(e.target.value)}
+          sx={{ minWidth: 200 }}
+        />
+      </Stack>
+
+      {queuesLoading ? (
+        <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />
+      ) : total === 0 && failures.length === 0 ? (
         <Typography sx={{ fontSize: 13, color: "text.secondary", py: 3 }}>
-          Nothing is waiting on you.
+          {employee || claimIdFilter ? "No claims match these filters." : "Nothing is waiting on you."}
         </Typography>
       ) : (
         <Box sx={{ overflowX: "auto" }}>
@@ -200,7 +305,7 @@ export default function NeedsYouTab() {
                 <GroupHeading
                   label="Expense claims"
                   count={expenseRows.length}
-                  note={stageNote(canLead, canExpenseFinance)}
+                  note={`you decide as ${expenseStage === "LEAD" ? "lead" : "finance"}`}
                 />
               )}
               {expenseRows.map((claim) => (
@@ -210,16 +315,7 @@ export default function NeedsYouTab() {
                   <WaitCell since={waitingSince(claim)} />
                   <AmountCell amount={claim.totalAmount} currency={claim.currencyCode ?? "LKR"} />
                   <TableCell sx={CELL}>
-                    {/* Which decision this row wants from you. A person holding
-                        both flags sees both kinds in one list, so the row has to
-                        say which hat it needs. */}
-                    <Chip
-                      size="small"
-                      label={
-                        claim.statusDetails.status === "PENDING_LEAD" ? "as lead" : "as finance"
-                      }
-                      sx={{ height: 18, fontSize: 10.5 }}
-                    />
+                    {claim.transactions.length} item{claim.transactions.length === 1 ? "" : "s"}
                   </TableCell>
                   <ReviewCell onClick={() => setExpenseTarget(claim)} />
                 </TableRow>
@@ -231,11 +327,6 @@ export default function NeedsYouTab() {
 
     </Box>
   );
-}
-
-function stageNote(canLead: boolean, canFinance: boolean): string {
-  if (canLead && canFinance) return "you decide as lead and as finance";
-  return canLead ? "you decide as lead" : "you decide as finance";
 }
 
 const CELL = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;

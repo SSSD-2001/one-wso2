@@ -38,10 +38,15 @@ import UmtLocked from "./UmtLocked";
 export default function UmtShell({
   title,
   backTo,
+  requireAdmin = false,
   children,
 }: {
   title: string;
   backTo?: string;
+  /** Page-level gate for UMT_ADMIN-only screens (e.g. Product Management). Hiding
+   * a rail item alone is not an authorization boundary, so admin-only pages
+   * must opt into this rather than relying on navigation alone. */
+  requireAdmin?: boolean;
   children: ReactNode;
 }) {
   const configured = isUmtBackendConfigured();
@@ -60,7 +65,7 @@ export default function UmtShell({
         </Typography>
       </Stack>
 
-      <UmtBody configured={configured} gate={gate}>
+      <UmtBody configured={configured} gate={gate} requireAdmin={requireAdmin} title={title}>
         {children}
       </UmtBody>
     </Box>
@@ -70,10 +75,14 @@ export default function UmtShell({
 function UmtBody({
   configured,
   gate,
+  requireAdmin,
+  title,
   children,
 }: {
   configured: boolean;
   gate: ReturnType<typeof useUmtGate>;
+  requireAdmin: boolean;
+  title: string;
   children: ReactNode;
 }) {
   // Metadata is shared by UMT workflows. Keeping its failure at this boundary
@@ -116,6 +125,17 @@ function UmtBody({
   // This is a completed authorization decision, not a request failure.
   if (!gate.isAuthorized) {
     return <UmtLocked />;
+  }
+
+  // A recognized UMT user/product-lead still isn't an admin. Kept distinct
+  // from UmtLocked above: this person does have UMT access, just not to this
+  // specific screen.
+  if (requireAdmin && !gate.isAdmin) {
+    return (
+      <Alert severity="warning" sx={{ mt: 1.5 }}>
+        {title} is limited to UMT administrators. Ask a UMT admin if you need access.
+      </Alert>
+    );
   }
 
   return (

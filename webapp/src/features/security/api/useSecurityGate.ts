@@ -34,8 +34,7 @@ export interface SecurityGate {
 // separate implementation would be a second copy of the access rule in the
 // browser, which is how the two drift.
 //
-// The cost is inherited, and it is real — see the issues listing in
-// docs/ported-apps/grc-security-lift.md:
+// The cost is inherited, and it is real:
 //   - the three hooks fire GET /me/privileges separately, so a Security page
 //     load makes three identical calls
 //   - each caches in a module-level promise that is NOT keyed on the user, so

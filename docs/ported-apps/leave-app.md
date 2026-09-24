@@ -11,10 +11,12 @@ production; what it does is observed. Its Ballerina backend was read only to und
 anything inferred from it and never seen in the running app is marked as such in §9 and is a question,
 not a claim.
 
-**In One WSO2:** two entries under Me → Leave — **General** and **Sabbatical**, the names the source
-uses (`route.ts:67,74`) — each opening on tabs for everything you can do with that kind. `/me/leave/general` → `apply`, `history`, `reports`;
-`/me/leave/sabbatical` → `apply`, `history`, `approve`, `approval-history`, `report`. Backend is the
-leave service configured as `ONE_WSO2_LEAVE_BACKEND_URL`.
+**In One WSO2:** one entry under Me → **Leave**, at `/me/leave`, with tabs named for the action —
+`apply`, `history`, `approvals`, `approval-history`, `reports` — and the kind of leave chosen inside
+the tabs that offer both: `/me/leave/apply/general`, `/me/leave/apply/sabbatical`, and the same for
+`history` and `reports`. `approvals` and `approval-history` carry no kind segment because general
+leave has no approval step. Backend is the leave service configured as
+`ONE_WSO2_LEAVE_BACKEND_URL`.
 
 ---
 
@@ -40,7 +42,7 @@ The backend grants `LEAD` on having subordinates, so anyone leading a team holds
 
 ## 2. Screens
 
-### 2.1 Apply — `/me/leave/general/apply`
+### 2.1 Apply — `/me/leave/apply/general`
 
 Dates, leave type, day portion, people to notify, an optional comment. A live validation call
 (`isValidationOnlyMode=true`, debounced 400 ms) returns the working-day count for the range.
@@ -66,29 +68,30 @@ employees are not offerable.
 
 **Submitting** asks for confirmation first, naming the type, working days, range and portion.
 
-### 2.2 My History — `/me/leave/general/history`
+### 2.2 My History — `/me/leave/history/general`
 
 Cards for one year at a time, newest first, statuses `[APPROVED, PENDING]`. Cancel is offered until
 the leave started more than 30 days ago. The year list runs from the employment year to now.
 
-### 2.3 Reports — `/me/leave/general/reports`
+### 2.3 Reports — `/me/leave/reports/general`
 
 A DataGrid: six columns, sortable, paged at ten, with the filter panel, column visibility, density
 and CSV/print export the component provides. Filters are drafted and applied on **Fetch report**.
 The day total is shown only when the result covers one employee.
 
-### 2.4 Sabbatical — `/me/leave/sabbatical`
+### 2.4 Sabbatical
 
-Its own rail entry, holding everything to do with sabbaticals. A sabbatical is a once-in-years
-thing, so it stays out of the everyday path rather than appearing as a tab in every group.
+Not a rail entry of its own: the kind of leave is a toggle inside the tabs that offer both, and a
+route segment so the choice is linkable and the gate can enforce it. The toggle is drawn only when
+the visitor may open more than one kind, so an intern never sees a Sabbatical half they cannot pick.
 
 | Route | Who | Source |
 |---|---|---|
-| `/me/leave/sabbatical/apply` | employee or lead, not intern | `ApplyTab.tsx` |
-| `/me/leave/sabbatical/history` | employee or lead, not intern | `SabbaticalLeaveHistory.tsx` |
-| `/me/leave/sabbatical/approve` | lead | `ApproveLeaveTab.tsx` + `ApproveLeaveTable.tsx` |
-| `/me/leave/sabbatical/approval-history` | lead | `ApproveHistoryTab.tsx` + `ApprovalHistoryTable.tsx` |
-| Report | lead or People Ops | `AdminSabbaticalTab.tsx` |
+| `/me/leave/apply/sabbatical` | employee or lead, not intern | `ApplyTab.tsx` |
+| `/me/leave/history/sabbatical` | employee or lead, not intern | `SabbaticalLeaveHistory.tsx` |
+| `/me/leave/approvals` | lead | `ApproveLeaveTab.tsx` + `ApproveLeaveTable.tsx` |
+| `/me/leave/approval-history` | lead | `ApproveHistoryTab.tsx` + `ApprovalHistoryTable.tsx` |
+| `/me/leave/reports/sabbatical` | lead or People Ops | `AdminSabbaticalTab.tsx` |
 
 The whole screen is replaced by a notice when `appConfig.isSabbaticalLeaveEnabled` is false. Apply is
 replaced by an explanation when the user has no `leadEmail` — there is nobody to route the request
@@ -169,10 +172,13 @@ changes which rows come back.
   sortable; the total only for one employee; the toolbar's four controls present.
 - Gate: employee, intern, lead, People Ops, and none — `isLead` alone and `subordinateCount > 0`
   alone must **not** grant Reports.
-- Rail entries (`useLeaveGate.test.tsx`): an entry appears when any tab in it does — Sabbatical is
-  offered to People Ops for its Report, withheld entirely from an intern, and General is offered to
+- The rail entry (`useLeaveGate.test.tsx`): it appears when any tab does, which is every role, since
+  applying is open to all of them. The two retired ids stay absent — re-adding one without a case in
+  the gate would fall through to the open default. Offered to People Ops for the reports, and to an
+  intern, who simply gets no sabbatical toggle inside. General is offered to
   everyone because applying is open to all.
-- Tab routing (`LeaveTabRouting.test.tsx`): the group URL redirects to the first *permitted* tab;
+- Tab routing (`LeaveTabRouting.test.tsx`): `/me/leave` redirects to the first *permitted* tab at a
+  kind that visitor may open; the toggle is absent where only one kind is live;
   the bar offers only permitted tabs and says so when there are none; the tab named by the URL is
   the one marked selected; clicking a tab changes the URL; a refused tab's URL redirects to one the
   visitor may see, or explains when there is none; and nothing is decided while the gate is still
@@ -182,20 +188,68 @@ changes which rows come back.
 
 ## 7. Deviations from the source, and why
 
+**Notify people — the lead goes last.** The backend builds `cachedEmails.mandatoryMails` lead-first
+and group-second, hardcoded (`leave-app/backend/service.bal:146-162`); `emailGroupToNotify` is a
+required per-deployment configurable, so the group is always present — on staging it is simply
+pointed at the signed-in user's own address, which is why no distinct group shows there.
+
+The two source apps disagree on the order. The **webapp** renders the backend's order untouched
+(`NotifyPeople.tsx:79`). The **micro app** puts the group first: it ignores `mandatoryMails`
+entirely and builds `[...DEFAULT_EMAIL_RECIPIENTS, ...leadEmails]` from a group address hardcoded
+client-side (`digiops-hr/apps/leave/microapp`, `constants.js:96`, `NotifyPeople.js:178`).
+We follow the **micro app**: the group is where the absence is *announced*,
+the lead is who *acts* on it, and the announcement reads better first.
+
+The lead is identified by address (`/user-info`'s `leadEmail`), not by position, so the reordering
+holds whatever the backend sends and is a no-op when no lead is among them. Covered by
+`LeaveApplyPage.test.tsx` rather than by eye, since staging shows no distinct group.
+
+**Not** taken from the micro app: its hardcoded group *address* and display name ("WSO2 Vacation
+Group"). The backend sends neither, and a client-side copy is exactly what has already drifted — the
+micro app's constant and the backend's configurable resolve to different addresses on staging today.
+The chip shows whatever address the backend sends.
+
+**A successful submit lands on My history.** Neither source app navigates — both reset the form and
+raise a snackbar. We do both and then go to that kind's history, so the request you just made is
+what you see. Guarded: a People-Ops-only account may apply for general leave but may not open My
+history (route.ts:58 lists them, route.ts:110 does not), so for them the navigation is skipped and
+the reset plus the message is the whole feedback. See `historyPathAfterSubmit`.
+
+**The recipients survive a submit.** `GeneralLeave.tsx:150-155` clears the dates, the type, the
+portion and the comment, and deliberately leaves `emailRecipients` alone. The port was also clearing
+the recipients, which emptied more than the chips: the seeding effect is guarded by a ref, so they
+were never re-seeded, the next submit sent an empty `emailRecipients`, and the backend stores that
+as the `copyEmailList` it later returns as `optionalMails` — one submit dropped the suggestions and a
+second erased them. Now matches the source.
+
 **Kept — the port is right and the source is wrong.** The source parses `new Date("2026-08-15")` as
 UTC midnight, so dates render a day early west of UTC; it renders "1 days"; it renders
 "Conges_payes Leave"; and its `SingleLeaveHistory` omits `status`, which the backend returns and the
 port's DTO carries.
 
-**Structural.** The source's route table (`route.ts:47-150`) nests action-first — Apply →
+**Structural — reverted.** The source's route table (`route.ts:47-150`) nests action-first — Apply →
 General|Sabbatical, Approve → Sabbatical|Approval History, My History → General|Sabbatical, Reports →
-General|Sabbatical — and draws the second level as a sidebar. One WSO2 transposes it: two entries by
-**kind**, each holding the actions for that kind. The screens, their rules and their order within a
-group are unchanged; what differs is which level is the rail and which the tabs.
+General|Sabbatical — and draws the second level as a sidebar. The first port transposed it into two
+rail entries by **kind**, on the argument that a once-in-years sabbatical should stay out of an
+everyday path.
 
-The reason is frequency. General leave is an everyday errand and sabbaticals are taken once in
-several years, so threading Sabbatical through Apply, My History and Reports would put a rare thing
-in front of everyone, every time. Kept apart, the common path is one entry with three tabs.
+That has been undone: One WSO2 now follows the source's own order, one entry with tabs by action and
+the kind chosen inside. The transposition cost two rail rows in which three of the eight tabs
+repeated a name (Apply, My history, Report), and it put a sabbatical level with the leave people
+book every month — the opposite of what it was meant to achieve. Folding back cost nothing in the
+screens: each tab body was already a zero-prop component, and the two history tabs already shared one
+`HistoryBody`, so a toggle selects between them and nothing was merged.
+
+The kind is a route segment rather than component state because the gate is enforced at the route.
+Hiding a toggle is not access control, and a typed URL has to be refused the same way — see
+`LeaveKindRoute`.
+
+**The one asymmetry.** General leave has no approval step: the backend creates it already approved
+(`service.bal:539`). So `approvals` and `approval-history` offer one kind and no toggle, and say why
+in the tab's subtitle — "Only sabbaticals need approving. General leave is approved the moment you
+submit it." A disabled General half was considered and rejected: a control that never unlocks reads
+as broken, and a tooltip on a disabled element is unreachable by touch and, in MUI, does not fire
+at all.
 
 Each tab is a real route, so a tab can be linked, survives a refresh, and is reachable with the back
 button. It is also *gated* at the route: `useLeaveGate.canSee` decides the rail entry, the tab in the

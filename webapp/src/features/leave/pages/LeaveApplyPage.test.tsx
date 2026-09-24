@@ -14,10 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { MemoryRouter, Route, Routes } from "react-router";
 
 const appConfigData = {
   cachedEmails: {
@@ -45,11 +46,21 @@ const employeeList = [
 ];
 
 // Mutable so a test can move the employee and check what changes with them.
-const user = { location: "Sri Lanka" as string | null };
+// `privileges` feeds the REAL useLeaveGate — this file does not mock it — and
+// the gate is what decides whether a successful submit navigates to My history.
+// EMPLOYEE (987) can see it; a People-Ops-only account (789) cannot.
+const user = { location: "Sri Lanka" as string | null, privileges: [987] as number[] };
 
 vi.mock("../api/useLeaveData", () => ({
   useLeaveUserInfo: () => ({
-    data: { workEmail: "me@wso2.com", leadEmail: "lead@wso2.com", location: user.location },
+    data: {
+      workEmail: "me@wso2.com",
+      leadEmail: "lead@wso2.com",
+      location: user.location,
+      privileges: user.privileges,
+    },
+    isPending: false,
+    isError: false,
   }),
   useLeaveAppConfig: () => ({ data: appConfigData, isPending: false, isError: false }),
   useLeaveEmployees: () => ({
@@ -95,11 +106,18 @@ const { NotificationsProvider } = await import("@context/notifications/Notificat
 
 function show() {
   return render(
-    <QueryClientProvider client={new QueryClient()}>
-      <NotificationsProvider>
-        <LeaveApplyPage />
-      </NotificationsProvider>
-    </QueryClientProvider>,
+    // A Router because a successful submit navigates to My history — see the
+    // "where a submitted request lands" tests below.
+    <MemoryRouter initialEntries={["/me/leave/apply/general"]}>
+      <QueryClientProvider client={new QueryClient()}>
+        <NotificationsProvider>
+          <Routes>
+            <Route path="/me/leave/apply/general" element={<LeaveApplyPage />} />
+            <Route path="/me/leave/history/general" element={<div>my history</div>} />
+          </Routes>
+        </NotificationsProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -132,6 +150,47 @@ describe("who gets notified by default", () => {
     // A seeded one can be removed.
     const buddy = screen.getByText("buddy@wso2.com").closest(".MuiChip-root");
     expect(buddy?.querySelector(".MuiChip-deleteIcon")).not.toBeNull();
+  });
+});
+
+// Prod's mandatoryMails carries the leave group alongside the lead, and the
+// backend sends the lead first. The group is where the absence is ANNOUNCED and
+// the lead is who ACTS on it, so the announcement reads better at the front.
+// Staging has no group, which is why this is covered here rather than by eye.
+describe("the order of the always-notified chips", () => {
+  const original = appConfigData.cachedEmails.mandatoryMails;
+  afterEach(() => {
+    appConfigData.cachedEmails.mandatoryMails = original;
+  });
+
+  it("puts the leave group before the lead, whatever order the backend sends", async () => {
+    appConfigData.cachedEmails.mandatoryMails = [
+      { email: "lead@wso2.com", thumbnail: null },
+      { email: "leave-group@example.com", thumbnail: null },
+    ];
+    show();
+    await waitFor(() => expect(screen.getByText("leave-group@example.com")).toBeInTheDocument());
+
+    const order = [...document.querySelectorAll(".MuiChip-root")]
+      .map((c) => c.textContent?.trim())
+      .filter((s) => s === "lead@wso2.com" || s === "leave-group@example.com");
+    expect(order).toEqual(["leave-group@example.com", "lead@wso2.com"]);
+  });
+
+  // The lead is found by address, not by position, so a backend that already
+  // sends the group first must not have the two swapped back.
+  it("leaves a list that is already group-first alone", async () => {
+    appConfigData.cachedEmails.mandatoryMails = [
+      { email: "leave-group@example.com", thumbnail: null },
+      { email: "lead@wso2.com", thumbnail: null },
+    ];
+    show();
+    await waitFor(() => expect(screen.getByText("leave-group@example.com")).toBeInTheDocument());
+
+    const order = [...document.querySelectorAll(".MuiChip-root")]
+      .map((c) => c.textContent?.trim())
+      .filter((s) => s === "lead@wso2.com" || s === "leave-group@example.com");
+    expect(order).toEqual(["leave-group@example.com", "lead@wso2.com"]);
   });
 });
 
@@ -194,6 +253,72 @@ describe("the confirmation before posting", () => {
     await user.click(screen.getByRole("button", { name: /Submit Leave/ }));
     await user.click(await screen.findByRole("button", { name: "Yes" }));
     expect(submitMutate).toHaveBeenCalledTimes(1);
+  });
+
+  // Requested behaviour: show them the request they just made. Untested until
+  // now — the fixture carried no privileges, so the gate refused My history and
+  // the navigation silently never fired.
+  it("lands on My history after a successful submit", async () => {
+    const u = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
+    await u.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(submitMutate).toHaveBeenCalled());
+    submitMutate.mock.calls[0][1].onSuccess();
+    expect(await screen.findByText("my history")).toBeInTheDocument();
+  });
+
+  // A People-Ops-only account may APPLY for general leave but may not open My
+  // history (route.ts:58 lists them, route.ts:110 does not). Navigating them
+  // there would hand them to LeaveKindRoute's refusal and bounce them
+  // somewhere arbitrary, so the form stays put and the message is the feedback.
+  it("stays on the form when the visitor may not see My history", async () => {
+    user.privileges = [789];
+    const u = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
+    await u.click(screen.getByRole("button", { name: /Submit Leave/ }));
+    await u.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(submitMutate).toHaveBeenCalled());
+    submitMutate.mock.calls[0][1].onSuccess();
+    // waitFor + getBy, not findBy: findBy resolves the instant the element is
+    // there, which is before a navigation has had the chance to unmount it.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("my history")).not.toBeInTheDocument();
+    user.privileges = [987];
+  });
+
+  // THE bug. The source resets dates, type, portion and the comment after a
+  // submit and deliberately leaves the recipients (GeneralLeave.tsx:150-155).
+  // Clearing them here emptied more than the chips: `seeded` is a ref, so they
+  // were never re-seeded, the NEXT submit sent an empty emailRecipients, and
+  // the backend stored that as the copyEmailList it later hands back as
+  // optionalMails — so the suggestions disappeared for good.
+  it("keeps the recipients after a submit, so the next one still carries them", async () => {
+    // People Ops, so the form is not navigated away from — the chips surviving
+    // is only observable on a screen that stays mounted.
+    user.privileges = [789];
+    const ue = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await waitFor(() => expect(screen.getByText("buddy@wso2.com")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Submit Leave/ })).toBeEnabled());
+    await ue.click(screen.getByRole("button", { name: /Submit Leave/ }));
+    await ue.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(submitMutate).toHaveBeenCalled());
+
+    const sent = submitMutate.mock.calls[0][0].emailRecipients;
+    expect(sent).toContain("buddy@wso2.com");
+    expect(sent).toContain("scrum@wso2.com");
+
+    // Drive the success path the way React Query would, then check the chips
+    // survived it — a People-Ops account stays on this form afterwards.
+    submitMutate.mock.calls[0][1].onSuccess();
+    await waitFor(() => expect(screen.getByText("buddy@wso2.com")).toBeInTheDocument());
+    expect(screen.getByText("scrum@wso2.com")).toBeInTheDocument();
+    user.privileges = [987];
   });
 
   // The sabbatical form had this call site and not this message, so it went
@@ -390,14 +515,20 @@ describe("while the people list is still loading", () => {
   it("greys the picker out rather than letting someone type into nothing", () => {
     state.employeesLoading = true;
     show();
-    expect(screen.getByPlaceholderText("Loading people…")).toBeDisabled();
+    // The placeholder no longer changes while loading — the disabled state and
+    // the spinner carry that, and a third signal only made the field flicker
+    // between two strings.
+    expect(screen.getByPlaceholderText("Add people to notify (optional)")).toBeDisabled();
     state.employeesLoading = false;
   });
 
   it("shows a spinner in the field, not only inside an unopened dropdown", () => {
     state.employeesLoading = true;
     show();
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    // Named: the field it sits in is disabled, and a disabled input is not in
+    // the tab order, so the spinner is the only cue left for anyone not
+    // looking at the screen.
+    expect(screen.getByRole("progressbar", { name: "Loading options" })).toBeInTheDocument();
     state.employeesLoading = false;
   });
 

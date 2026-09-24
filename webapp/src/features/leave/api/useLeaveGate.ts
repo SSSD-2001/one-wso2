@@ -15,7 +15,7 @@
 // under the License.
 
 import { ME_APPS } from "@constants/meApps";
-import { LEAVE_GROUPS, groupHasAnyTab } from "../leaveTabs";
+import { hasAnyLeaveTab } from "../leaveTabs";
 import { LEAVE_PRIVILEGE } from "./leaveTypes";
 import { useLeaveUserInfo } from "./useLeaveData";
 
@@ -91,16 +91,13 @@ export function useLeaveGate(enabled = true): LeaveGate {
       // list them, so only history is narrowed.
       case "leave-history":
         return isEmployee || isIntern || isLead;
-      // The two rail entries. A group is offered whenever it holds a tab this
-      // person may open — NOT when they may take that kind of leave. A
-      // People-Ops-only account cannot hold a sabbatical but does get the
-      // sabbatical Report, and gating the entry on the sabbatical permission
-      // would hide a screen they are entitled to.
-      case "leave-general":
-      case "leave-sabbatical": {
-        const group = LEAVE_GROUPS.find((g) => g.id === itemId);
-        return group ? groupHasAnyTab(group, canSee) : false;
-      }
+      // The rail entry. Offered whenever ANY tab inside is — NOT when this
+      // person may take leave of some particular kind. A People-Ops-only
+      // account holds no leave of its own but does get both Reports, and
+      // gating the entry on a personal permission would hide screens they are
+      // entitled to.
+      case "leave-home":
+        return hasAnyLeaveTab(canSee);
       default:
         // Anything that declares a restriction and is not named above fails
         // closed, so the menu cannot drift ahead of this mapping.

@@ -58,12 +58,15 @@ function useIsSriLanka(): boolean {
 export default function ClaimsPage() {
   const types = visibleClaimTypes(useIsSriLanka());
   return (
-    <Box>
+    // A fill column: the history table below can run long, and without this
+    // scrolling it carried the header and the tab switcher away with it
+    // instead of staying put while just the list scrolled.
+    <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {/* Centred against the title block, not level with the eyebrow: the
           header is three lines tall and a button pinned to the top of it reads
           as unanchored. Stays on the right, where every primary action in the
           app lives, so the page still reads title → tabs → list. */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2, flexShrink: 0 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* No parent chip: "Claims" already names the app, so a chip above
               it said the same thing twice — and said "Me", the perspective,
@@ -81,8 +84,12 @@ export default function ClaimsPage() {
         <AddClaimButton />
       </Box>
 
-      <RoutedTabs basePath={CLAIMS_PATH} tabs={types} ariaLabel="Claim types" />
-      <Outlet />
+      <Box sx={{ flexShrink: 0 }}>
+        <RoutedTabs basePath={CLAIMS_PATH} tabs={types} ariaLabel="Claim types" />
+      </Box>
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <Outlet />
+      </Box>
     </Box>
   );
 }

@@ -49,7 +49,10 @@ export function withLoadingAdornment(
       ...params.InputProps,
       endAdornment: (
         <>
-          <CircularProgress size={15} sx={{ mr: 0.5 }} />
+          {/* Named, because it is the only cue that survives: the field it sits
+              in is disabled while loading, and a disabled input is not in the
+              tab order, so its placeholder is never announced. */}
+          <CircularProgress size={15} sx={{ mr: 0.5 }} aria-label="Loading options" />
           {params.InputProps.endAdornment}
         </>
       ),

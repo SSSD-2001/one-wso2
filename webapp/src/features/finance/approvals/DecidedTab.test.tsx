@@ -17,7 +17,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // The decided list. Same three queues as Needs you, so the same disabled-query
@@ -94,6 +95,9 @@ vi.mock("../opd/useOpd", () => ({
       error: new Error("opd backend down"),
     };
   },
+  // Only feeds the "Filter by email" dropdown's options — nothing under test
+  // cares which addresses it offers.
+  useOpdEmployees: () => ({ data: [], isLoading: false, isError: false }),
 }));
 
 // A decided expense claim now takes over the whole tab — the app's own
@@ -205,7 +209,33 @@ describe("when a role is missing", () => {
     flags.lead = false;
     flags.finance = false;
     show();
-    expect(await screen.findByText("Nothing has been decided yet.")).toBeInTheDocument();
+    // Opens on the Approved tab.
+    expect(await screen.findByText("Nothing approved yet.")).toBeInTheDocument();
+  });
+});
+
+// FilterHolder.tsx-style narrowing: a claim of one employee or one id, applied
+// to every queue this tab runs — otherwise the only way to find a claim is to
+// scroll the whole company's, across two apps at once.
+describe("narrowing by employee or claim id", () => {
+  it("sends no email or id by default", async () => {
+    data.finance = [expenseClaim({})];
+    show();
+    await waitFor(() => expect(searches.expense.length).toBeGreaterThan(0));
+    for (const p of [...searches.expense, ...searches.opd]) {
+      expect(p.email).toBeUndefined();
+      expect(p.ids).toBeUndefined();
+    }
+  });
+
+  it("narrows every queue to one claim id", async () => {
+    data.finance = [expenseClaim({})];
+    show();
+    fireEvent.change(await screen.findByLabelText("Filter by claim ID"), {
+      target: { value: "C-42" },
+    });
+    await waitFor(() => expect(searches.expense.at(-1)?.ids).toEqual(["C-42"]));
+    expect(searches.opd.at(-1)?.ids).toEqual(["C-42"]);
   });
 });
 
@@ -268,6 +298,56 @@ describe("what it asks for", () => {
   });
 });
 
+// Pending / Approved / Rejected is what Claim Approval's OPD tab offers;
+// Decided has nothing pending by definition, so it is just the two.
+describe("the Approved / Rejected tabs", () => {
+  it("opens on Approved", async () => {
+    data.opd = [opdClaim({})];
+    show();
+    expect(await screen.findByRole("tab", { name: "Approved" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("hides a rejected claim until the Rejected tab is picked", async () => {
+    data.opd = [
+      opdClaim({
+        id: "OPD-NO",
+        statusDetails: { status: "REJECTED", financeRejectedDate: iso(2026, 7, 18), financeApproverEmail: "fin@wso2.com", financeApprovedDate: null },
+      }),
+    ];
+    const user = userEvent.setup();
+    show();
+    expect(await screen.findByText("Nothing approved yet.")).toBeInTheDocument();
+    expect(screen.queryByText("OPD-NO")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Rejected" }));
+    expect(await screen.findByText("OPD-NO")).toBeInTheDocument();
+  });
+
+  // A claim a lead forwarded on is not rejected, so it stays under Approved
+  // alongside the Outcome chip's own "Sent to finance" label rather than
+  // disappearing from both tabs.
+  it("keeps a forwarded claim under Approved", async () => {
+    data.lead = [
+      expenseClaim({
+        id: "EXP-FORWARDED",
+        statusDetails: {
+          status: "PENDING_FINANCE",
+          leadApprovedDate: iso(2026, 7, 22),
+          financeApproverEmail: null,
+          financeApprovedDate: null,
+          financeRejectedDate: null,
+          leadRejectedDate: null,
+        },
+      }),
+    ];
+    show();
+    expect(await screen.findByText("EXP-FORWARDED")).toBeInTheDocument();
+  });
+});
+
 describe("what it shows", () => {
   it("names who decided, where the backend records it", async () => {
     data.opd = [opdClaim({})];
@@ -302,7 +382,10 @@ describe("what it shows", () => {
     data.opd = [
       opdClaim({ id: "OPD-NO", statusDetails: { status: "REJECTED", financeRejectedDate: iso(2026, 7, 18), financeApproverEmail: "fin@wso2.com", financeApprovedDate: null } }),
     ];
+    const user = userEvent.setup();
     show();
+    // Rejected, so it sorts under the Rejected tab, not the default Approved one.
+    await user.click(await screen.findByRole("tab", { name: "Rejected" }));
     const row = (await screen.findByText("OPD-NO")).closest("tr")!;
     expect(within(row).getByText("Rejected")).toBeInTheDocument();
   });
@@ -326,7 +409,7 @@ describe("when the call that decides the queues fails", () => {
     data.appDataFails = true;
     show();
     expect(await screen.findByText(/couldn't be loaded/)).toBeInTheDocument();
-    expect(screen.queryByText("Nothing has been decided yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Nothing (approved|rejected) yet\.$/)).not.toBeInTheDocument();
   });
 });
 
@@ -391,7 +474,10 @@ describe("opening an expense claim", () => {
   // to be right on a decided claim too, not just a pending one.
   it("reads the stage off a lead decision, not finance", async () => {
     data.lead = [expenseClaim({ id: "EXP-LEAD-REJ", statusDetails: { status: "LEAD_REJECTED" } })];
+    const user = userEvent.setup();
     show();
+    // Rejected, so it sorts under the Rejected tab, not the default Approved one.
+    await user.click(await screen.findByRole("tab", { name: "Rejected" }));
     const row = (await screen.findByText("EXP-LEAD-REJ")).closest("tr")!;
     within(row).getByRole("button", { name: "View" }).click();
     const review = await screen.findByTestId("expense-review");

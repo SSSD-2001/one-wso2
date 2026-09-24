@@ -26,7 +26,6 @@ import {
 } from "../api/usePromotionEmployeeInfo";
 import { formatDate } from "../api/derive";
 import PromotionHistoryDialog from "./PromotionHistoryDialog";
-import { isPreviewEnabled } from "@config/previewFeatures";
 import PerformanceStages from "./PerformanceStages";
 import BankAccountsCard from "./BankAccountsCard";
 
@@ -81,14 +80,11 @@ export default function ConnectedServices() {
             </Tooltip>
           </Stack>
           <PerformanceStages workEmail={ownerEmail} />
-          {/* Hand-built link, so the registry's gate does not cover it. */}
-          {isPreviewEnabled("par") && (
-            <Box sx={{ mt: 1.25 }}>
-              <Button variant="outlined" size="small" component={RouterLink} to="/me/performance" fullWidth>
-                Open employee feedback
-              </Button>
-            </Box>
-          )}
+          <Box sx={{ mt: 1.25 }}>
+            <Button variant="outlined" size="small" component={RouterLink} to="/me/performance" fullWidth>
+              Open employee feedback
+            </Button>
+          </Box>
         </Card>
 
         <BankAccountsCard ownerEmail={ownerEmail} />

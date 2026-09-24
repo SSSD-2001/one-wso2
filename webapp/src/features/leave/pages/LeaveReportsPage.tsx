@@ -43,6 +43,7 @@ import { useLeaveEmployees, useLeaveUserInfo, useLeaves } from "../api/useLeaveD
 import { useLeaveGate } from "../api/useLeaveGate";
 import { formatNice, startOfYearIso, todayIso } from "../util/leaveDates";
 import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
+import { GRID_NO_POINTER_FOCUS_SX } from "@utils/dataGridSx";
 
 const PERIOD_LABEL: Record<string, string> = {
   multiple: "Multiple days",
@@ -324,7 +325,10 @@ function ReportsBody() {
               disableRowSelectionOnClick
               showToolbar
               rowHeight={52}
-              sx={{ border: "none" }}
+              // Nothing here is per-cell actionable, so the ring MUI puts on
+              // the last-clicked cell only reads as a selection that does
+              // nothing. See GRID_NO_POINTER_FOCUS_SX.
+              sx={{ border: "none", ...GRID_NO_POINTER_FOCUS_SX }}
             />
           </Card>
         </>

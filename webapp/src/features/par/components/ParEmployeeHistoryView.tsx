@@ -22,13 +22,12 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useParRating } from "../api/useParData";
 import { useAllClosedParCycles, useParEmployeeReviews, useParLegacyHistory } from "../api/useLeadHistory";
 import { buildMergedCycleOptions } from "../util/parEmployeeHistory";
-import { deriveLegacyRatingFromScore, parseLegacyQuestionAnswers } from "../util/parLegacyHistory";
 import { decodeParComment } from "../util/parComment";
 import { employeeChipLabel } from "../util/parLabels";
 import { ParCommentView } from "./ParContent";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
-import ParLegacyReviewSection from "./ParLegacyReviewSection";
+import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
 import type { ParLegacyHistoryByEmail } from "../api/useLeadHistory";
 
 type CycleSelection = { kind: "none" } | { kind: "real"; parCycleId: number } | { kind: "legacy"; cycleName: string };
@@ -94,16 +93,6 @@ export default function ParEmployeeHistoryView({
     ? legacyRecords.find((record) => record.cycleName === cycleSelection.cycleName)
     : undefined;
 
-  const isMeaningfulLegacyText = (text: string | null | undefined): text is string =>
-    Boolean(text) && text!.trim() !== "" && text!.trim() !== "N/A";
-  const legacyEmployeeContent = parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null)
-    .map((qa) => qa.employeeAnswer)
-    .filter(isMeaningfulLegacyText)
-    .join("\n\n");
-  const legacyLeadContent = isMeaningfulLegacyText(selectedLegacyRecord?.overallCommentManager)
-    ? selectedLegacyRecord!.overallCommentManager!
-    : "";
-
   // "No record" wording stays deliberately vague: the backend can't tell "no
   // rating exists for this cycle" apart from a genuine fetch error here.
   // Scoped to `rating` alone — a failed or still-loading `reviews` fetch is
@@ -161,73 +150,12 @@ export default function ParEmployeeHistoryView({
       )}
 
       {showLegacyDetails && selectedLegacyRecord && (
-        <Stack spacing={2}>
-          <Grid container spacing={2}>
-            <Grid size="auto">
-              {/* The avatar is the employee's own thumbnail regardless of
-                  cycle type — not a per-legacy-record field. */}
-              <Avatar variant="rounded" src={thumbnailByEmail.get(employeeEmail)} alt="Employee Thumbnail" sx={{ width: 100, height: 100 }} />
-            </Grid>
-            {(() => {
-              const derived = deriveLegacyRatingFromScore(selectedLegacyRecord.managerScoreCode);
-              const rating2 = selectedLegacyRecord.overallRating ?? derived.rating;
-              const special = selectedLegacyRecord.overallSpecialRating ?? derived.special;
-              return (
-                <Grid size="grow">
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {special && special !== "NOT_ASSIGNED" && (
-                      <Chip size="small" color={employeeChipLabel(special).color} label={employeeChipLabel(special).label} />
-                    )}
-                    {rating2 && <Chip size="small" color={employeeChipLabel(rating2).color} label={employeeChipLabel(rating2).label} />}
-                  </Stack>
-                  {(selectedLegacyRecord.reviewerEmail || selectedLegacyRecord.reviewerName) && (
-                    <Chip
-                      size="small"
-                      sx={{ mt: 1 }}
-                      label={`PAR shared by: ${selectedLegacyRecord.reviewerEmail ?? selectedLegacyRecord.reviewerName}`}
-                    />
-                  )}
-                </Grid>
-              );
-            })()}
-            <InfoItem title={employeeName} subtitle1="Employee" subtitle2={employeeEmail} />
-            <InfoItem
-              title={selectedLegacyRecord.reviewerName ?? selectedLegacyRecord.reviewerEmail ?? ""}
-              subtitle1="Lead"
-              subtitle2={selectedLegacyRecord.reviewerEmail ?? ""}
-            />
-            <InfoItem title={selectedLegacyRecord.team ?? ""} subtitle1="Team" subtitle2={selectedLegacyRecord.department ?? ""} />
-          </Grid>
-
-          <Divider />
-
-          <Accordion
-            disabled={!legacyEmployeeContent}
-            defaultExpanded={Boolean(legacyEmployeeContent)}
-            sx={{ mt: 1 }}
-          >
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee PAR</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={legacyEmployeeContent} />
-            </AccordionDetails>
-          </Accordion>
-          <Accordion
-            disabled={!legacyLeadContent}
-            defaultExpanded={Boolean(legacyLeadContent)}
-            sx={{ mt: 1 }}
-          >
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Lead's Feedback</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={legacyLeadContent} />
-            </AccordionDetails>
-          </Accordion>
-
-          <Divider />
-
-          <ParLegacyReviewSection feedback360={selectedLegacyRecord.feedback360} />
-        </Stack>
+        <ParLegacyRecordDetail
+          record={selectedLegacyRecord}
+          employeeEmail={employeeEmail}
+          employeeName={employeeName}
+          thumbnail={thumbnailByEmail.get(employeeEmail)}
+        />
       )}
 
       {showRealDetails && rating.data && (

@@ -24,7 +24,7 @@ import { useDueDiligenceGate } from "@features/due-diligence/api/useDueDiligence
 import { useDueDiligenceAppConfig } from "@features/due-diligence/api/useDueDiligenceAppConfig";
 import ConfirmationDialog, {
   type ConfirmationContent,
-} from "@features/due-diligence/shared/components/ConfirmationDialog";
+} from "@components/confirmation-dialog/ConfirmationDialog";
 import { humanizeHttpError } from "@api/http";
 import { TRADE_REFERENCE_STATUS } from "@features/due-diligence/constants";
 import type { TradeReferenceRow } from "../api/tradeReferenceTypes";

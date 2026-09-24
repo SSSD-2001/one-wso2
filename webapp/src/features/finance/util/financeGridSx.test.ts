@@ -63,7 +63,7 @@ describe("the finance grids do not ring the cell you clicked", () => {
       "cc/CcStatementGrid.tsx",
       "cc/pages/CcNewTransactionsPage.tsx",
       "cc/pages/CcPendingPage.tsx",
-      "cc/pages/CcApprovePage.tsx",
+      "cc/pages/CcApproveBody.tsx",
     ];
     for (const f of files) {
       const src = readFileSync(join(__dirname, "..", f), "utf8");

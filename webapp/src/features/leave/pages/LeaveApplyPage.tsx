@@ -73,6 +73,9 @@ import {
   SUBMIT_SUCCESS,
 } from "../util/leaveCopy";
 import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
+import { useLeaveGate } from "../api/useLeaveGate";
+import { historyPathAfterSubmit } from "../leaveTabs";
+import { useNavigate } from "react-router";
 
 type Portion = "full" | "first" | "second";
 
@@ -84,6 +87,8 @@ export default function GeneralApplyTab() {
 
 function ApplyForm() {
   const userInfo = useLeaveUserInfo();
+  const navigate = useNavigate();
+  const gate = useLeaveGate();
   const appConfig = useLeaveAppConfig();
   const employees = useLeaveEmployees();
   const validate = useValidateLeave();
@@ -225,10 +230,27 @@ function ApplyForm() {
     () => new Map(offerable.map((e) => [e.workEmail, e])),
     [offerable],
   );
-  const mandatory = useMemo(
-    () => (appConfig.data?.cachedEmails.mandatoryMails ?? []).map((m) => m.email),
-    [appConfig.data],
-  );
+  // The always-notified addresses, with the LEAD LAST.
+  //
+  // The backend sends these lead-first, which put the person who decides ahead
+  // of the leave group that only needs telling. The group reads as "where this
+  // is announced" and the lead as "who acts on it", and the announcement is the
+  // one that belongs at the front.
+  //
+  // The lead is found by ADDRESS — whoever /user-info calls `leadEmail` — not
+  // by position, so this holds however the backend orders the list and whatever
+  // else is in it. With no lead resolved, or no lead among them, the backend's
+  // order stands untouched.
+  //
+  // A deliberate deviation: NotifyPeople.tsx renders mandatoryMails in the
+  // order received. See docs/ported-apps/leave-app.md.
+  const mandatory = useMemo(() => {
+    const all = (appConfig.data?.cachedEmails.mandatoryMails ?? []).map((m) => m.email);
+    const lead = userInfo.data?.leadEmail;
+    if (!lead) return all;
+    const withoutLead = all.filter((e) => e !== lead);
+    return withoutLead.length === all.length ? all : [...withoutLead, lead];
+  }, [appConfig.data, userInfo.data]);
 
   // Who the backend says was copied on this person's last request. The source
   // pre-selects these (NotifyPeople.tsx:86-99) so a repeat request notifies the
@@ -313,12 +335,23 @@ function ApplyForm() {
     submit.mutate(payload, {
       onSuccess: () => {
         showSuccess(SUBMIT_SUCCESS);
-        // Reset to a clean single-day request.
+        // Reset to a clean single-day request — dates, type, portion and the
+        // comment, exactly what GeneralLeave.tsx:150-155 clears.
+        //
+        // NOT the recipients. The source deliberately leaves them, and clearing
+        // them here did more than empty the chips: `seeded` is a ref, so they
+        // were never re-seeded, the next submit sent an empty emailRecipients,
+        // and the backend stored that as the copyEmailList — which is the list
+        // it hands back as optionalMails. One submit cleared the suggestions;
+        // a second erased them for good.
         setComment("");
-        setRecipients([]);
         setPortion("full");
         setStartDate(today);
         setEndDate(today);
+        // Show them the request they just made. The snackbar survives the
+        // navigation — NotificationsProvider sits above the router.
+        const landing = historyPathAfterSubmit("general", gate.canSee);
+        if (landing) navigate(landing);
       },
       onError: (err) => showError(describeError(err)),
     });
@@ -531,7 +564,11 @@ function ApplyForm() {
           renderInput={(params) => (
             <TextField
               {...withLoadingAdornment(params, employees.isLoading)}
-              placeholder={employees.isLoading ? "Loading people…" : "Add people to notify (optional)"}
+              // One placeholder, not two. While loading the field is disabled
+              // and carries a spinner, so a third signal saying the same thing
+              // just made the field flicker between two strings. The source
+              // does swap it (NotifyPeople.tsx:193) — a deliberate deviation.
+              placeholder="Add people to notify (optional)"
             />
           )}
         />

@@ -16,6 +16,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -31,6 +34,7 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
+  Link,
   MenuItem,
   Skeleton,
   Stack,
@@ -38,47 +42,70 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { FileDownIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
+import {
+  evidenceEnabledRating as defaultEvidenceEnabledRating,
+  top5p20pEnabledRating as defaultTop5p20pEnabledRating,
+} from "@config/apiConfig";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useParRating } from "../api/useParData";
 import { useLeadRatingUpdate } from "../api/useLeadRatingUpdate";
 import { useParEmployeeReviews } from "../api/useLeadHistory";
+import { useGoogleDrivePicker } from "../hooks/useGoogleDrivePicker";
 import { decodeParComment, encodeParComment, isEmptyHtml } from "../util/parComment";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
+import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
+import ParDriveFileChip from "./ParDriveFileChip";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
 import type { ParCycle } from "../api/types";
 
-const TOP_5_20_ENABLED_RATING = "Successful";
-
-// Ports LeadReviewPanel.tsx's lead-only path (Admin Portal view modes left
-// out). Not ported: evidence attachments (parPerformanceNoticeAck's Google
-// Drive picker — a capability nothing else in this app has).
+// Ports LeadReviewPanel.tsx's lead-only path, plus (via `isAdminView`) its
+// isAdminAuditViewOn branch used from the Admin Portal's Employee View/Team
+// View "Review" action. Not ported even in admin mode: editing the
+// employee's own comment on their behalf — the "Update Status" tab is a
+// sibling tab (ParUpdateStatusPanel), not part of this panel.
 export default function ParLeadReviewPanel({
   cycle,
   employeeEmail,
+  isAdminView = false,
 }: {
   cycle: ParCycle;
   employeeEmail: string;
+  isAdminView?: boolean;
 }) {
   const rating = useParRating(cycle.parCycleId, employeeEmail);
   const ratingUpdate = useLeadRatingUpdate(cycle.parCycleId);
   const reviews = useParEmployeeReviews(cycle.parCycleId, employeeEmail);
   const { showSuccess, showError } = useNotifications();
 
+  // Cycle-scoped value first (not on the wire yet — always undefined until
+  // the backend ships it, see the field's own comment in api/types.ts),
+  // falling back to the deploy-wide window.config value.
+  const top5p20pEnabledRating = cycle.parCycleConfigurations?.top5p20pEnabledRating ?? defaultTop5p20pEnabledRating;
+  const evidenceEnabledRating = cycle.parCycleConfigurations?.evidenceEnabledRating ?? defaultEvidenceEnabledRating;
+
   const [leadComment, setLeadComment] = useState("");
+  const [adminComment, setAdminComment] = useState("");
   const [parRatingValue, setParRatingValue] = useState("");
   const [specialRating, setSpecialRating] = useState<"NONE" | "TOP5P" | "TOP20P">("NONE");
   const [specialRatingConfirmed, setSpecialRatingConfirmed] = useState(false);
+  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
+  const [evidenceConfirmed, setEvidenceConfirmed] = useState(false);
   const [seededForId, setSeededForId] = useState<number | undefined>(undefined);
   const [autoSaved, setAutoSaved] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // An admin lands on this panel read-only by default — even for a
+  // still-in-progress DRAFT/PENDING record — and must explicitly unlock
+  // editing via the pencil icon below.
+  const [adminForceEdit, setAdminForceEdit] = useState(false);
+  const [adminEditConfirmOpen, setAdminEditConfirmOpen] = useState(false);
   const autoSaveTokenRef = useRef(0);
 
   const parRatingData = rating.data;
@@ -87,30 +114,57 @@ export default function ParLeadReviewPanel({
   if (parRatingData && parRatingData.parRatingId !== seededForId) {
     setSeededForId(parRatingData.parRatingId);
     setLeadComment(decodeParComment(parRatingData.parLeadComment));
+    setAdminComment(decodeParComment(parRatingData.parAdminComment));
     setParRatingValue(parRatingData.parRating && parRatingData.parRating !== "NOT_ASSIGNED" ? parRatingData.parRating : "");
     setSpecialRating((parRatingData.parSpecialRating as "TOP5P" | "TOP20P" | undefined) ?? "NONE");
     setSpecialRatingConfirmed(
-      parRatingData.parRating === TOP_5_20_ENABLED_RATING &&
+      parRatingData.parRating === top5p20pEnabledRating &&
         Boolean(parRatingData.parSpecialRating) &&
         parRatingData.parSpecialRating !== "NONE",
     );
+    setDriveFiles(parseSavedUrls(parRatingData.parPerformanceNoticeAck ?? ""));
+    // par-app never persists the checkbox itself, only its effect (the
+    // attached files) — always seeds unchecked, same as legacy's own
+    // initialValues.isEvidenceDiscussionConfirmed: false.
+    setEvidenceConfirmed(false);
   }
 
   useEffect(() => {
-    if (parRatingValue !== TOP_5_20_ENABLED_RATING) {
+    if (parRatingValue !== top5p20pEnabledRating) {
       setSpecialRating("NONE");
       setSpecialRatingConfirmed(false);
     }
-  }, [parRatingValue]);
+    if (parRatingValue !== evidenceEnabledRating) {
+      setDriveFiles([]);
+      setEvidenceConfirmed(false);
+    }
+  }, [parRatingValue, top5p20pEnabledRating, evidenceEnabledRating]);
+
+  const { openPicker, isLoading: isPickerLoading, error: pickerError } = useGoogleDrivePicker();
+
+  const handleFilesSelected = (newFiles: DriveFile[]) => {
+    setDriveFiles((prev) => {
+      const existingIds = new Set(prev.map((f) => f.id));
+      return [...prev, ...newFiles.filter((f) => !existingIds.has(f.id))];
+    });
+  };
+
+  const handleRemoveFile = (fileId: string) => {
+    setDriveFiles((prev) => prev.filter((f) => f.id !== fileId));
+  };
 
   // Every value below is derived with parRatingData possibly still
   // undefined (loading/error/not-found are handled further down, but hooks
   // must stay unconditional), so the submit/autosave logic guards on it
   // itself rather than relying on an early return to have already happened.
-  const deadlinePassed = isDeadlinePassed(cycle.parLeadDeadline);
+  // Admin edits are gated by the cycle's own closing date rather than the
+  // lead's feedback deadline.
+  const deadlineDate = isAdminView ? cycle.parCycleEndDate : cycle.parLeadDeadline;
+  const deadlinePassed = isDeadlinePassed(deadlineDate);
   const shared = parRatingData?.parLeadStatus === "SHARED";
-  const readOnly = shared || deadlinePassed;
+  const readOnly = isAdminView ? !adminForceEdit : shared || deadlinePassed;
   const savedLeadComment = decodeParComment(parRatingData?.parLeadComment);
+  const savedAdminComment = decodeParComment(parRatingData?.parAdminComment);
 
   const submit = (
     status: "DRAFT" | "SHARED",
@@ -135,7 +189,28 @@ export default function ParLeadReviewPanel({
             : {
                 ...(parRatingValue ? { parRating: parRatingValue } : {}),
                 parSpecialRating: specialRating,
+                // Omitted entirely rather than sent as "" when there's no
+                // evidence — the backend's ParRatingModify constrains this
+                // field to a non-empty string whenever it's present at all
+                // (types.bal's own [\s\S]*\S[\s\S]* pattern), so an explicit
+                // empty string 400s. Source's own updateEmployeeParRating
+                // has this same conditional-include for the same reason.
+                //
+                // One consequence neither side works around: there is no way
+                // to CLEAR a saved attachment through this endpoint at all.
+                // manager.bal's own isUpdatedString guard
+                // (`newValue.trim() != ""`) refuses to apply an empty value
+                // as an update even if one got past the constraint above, so
+                // removing every file and saving leaves the old URLs on the
+                // record — they reappear on the next fetch. Source has this
+                // identical gap; fixing it needs a backend change (a real
+                // clear operation), not a frontend one.
+                ...(driveFiles.length > 0 ? { parPerformanceNoticeAck: driveFiles.map((f) => f.url).join("\n") } : {}),
               }),
+          // Only an admin caller may set this field — the backend rejects a
+          // non-empty value from anyone else, per checkForModifiableFields-
+          // ForLead/-ForSelf.
+          ...(isAdminView ? { parAdminComment: encodeParComment(adminComment) } : {}),
         },
       },
       {
@@ -151,7 +226,8 @@ export default function ParLeadReviewPanel({
   };
 
   useEffect(() => {
-    if (!parRatingData || readOnly) return;
+    // No autosave in admin mode.
+    if (!parRatingData || readOnly || isAdminView) return;
     if (isEmptyHtml(leadComment) || leadComment.trim() === savedLeadComment.trim()) return;
     if (ratingUpdate.isPending) return;
     const timer = window.setTimeout(() => {
@@ -188,8 +264,10 @@ export default function ParLeadReviewPanel({
 
   const dirty =
     leadComment.trim() !== savedLeadComment.trim() ||
+    (isAdminView && adminComment.trim() !== savedAdminComment.trim()) ||
     (parRatingValue !== (parRatingData.parRating ?? "") && parRatingValue !== "") ||
-    specialRating !== (parRatingData.parSpecialRating ?? "NONE");
+    specialRating !== (parRatingData.parSpecialRating ?? "NONE") ||
+    driveFiles.map((f) => f.url).join("\n") !== (parRatingData.parPerformanceNoticeAck ?? "");
 
   const statusAlert = readOnly ? (
     <Alert severity={shared ? "success" : "info"}>
@@ -197,11 +275,16 @@ export default function ParLeadReviewPanel({
     </Alert>
   ) : parRatingData.parLeadStatus === "DRAFT" ? (
     <Alert severity="warning">
-      You have saved your PAR as a draft Please share on or before the deadline: {formatShortDate(cycle.parLeadDeadline)}.
+      You have saved your PAR as a draft.{" "}
+      {isAdminView
+        ? `Please share before the cycle ends: ${formatShortDate(deadlineDate)}.`
+        : `Please share on or before the deadline: ${formatShortDate(deadlineDate)}.`}
     </Alert>
   ) : (
     <Alert severity="info">
-      Please share the lead's feedback before the deadline: {formatShortDate(cycle.parLeadDeadline)}.
+      {isAdminView
+        ? `Please share the lead's feedback before the cycle ends: ${formatShortDate(deadlineDate)}.`
+        : `Please share the lead's feedback before the deadline: ${formatShortDate(deadlineDate)}.`}
     </Alert>
   );
 
@@ -212,7 +295,10 @@ export default function ParLeadReviewPanel({
   // "Required" for a non-admin caller) — for a rating to be picked and the
   // comment to be non-empty. The backend doesn't enforce either, so this is
   // the only place that does.
-  const employeeHasStarted = parRatingData.parEmployeeStatus !== "PENDING";
+  // In admin mode, the "employee hasn't started yet" gate on Share is
+  // removed — an admin can force a rating through regardless of where the
+  // employee's own side is.
+  const employeeHasStarted = isAdminView || parRatingData.parEmployeeStatus !== "PENDING";
   const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && dirty;
   const canShare =
     !readOnly &&
@@ -220,7 +306,8 @@ export default function ParLeadReviewPanel({
     !ratingUpdate.isPending &&
     employeeHasStarted &&
     Boolean(parRatingValue) &&
-    !isEmptyHtml(leadComment);
+    !isEmptyHtml(leadComment) &&
+    !(parRatingValue === evidenceEnabledRating && (!evidenceConfirmed || driveFiles.length === 0));
 
   return (
     <Grid container spacing={2}>
@@ -230,10 +317,18 @@ export default function ParLeadReviewPanel({
             {statusAlert}
             {deadlinePassed && !shared && (
               <Alert severity="error" sx={{ mt: 1.5 }}>
-                Lead's feedback deadline is passed on: {formatShortDate(cycle.parLeadDeadline)}.
+                {isAdminView ? "The cycle ended on" : "Lead's feedback deadline is passed on"}:{" "}
+                {formatShortDate(deadlineDate)}.
               </Alert>
             )}
           </Box>
+          {isAdminView && readOnly && (
+            <Tooltip title="Edit PAR details">
+              <IconButton aria-label="edit" onClick={() => setAdminEditConfirmOpen(true)}>
+                <PencilIcon size={18} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title={reviews.isSuccess ? "Download PAR details" : "360° reviews are still loading"}>
             <span>
               <IconButton
@@ -252,7 +347,7 @@ export default function ParLeadReviewPanel({
         <Card variant="outlined" sx={{ height: "100%" }}>
           <CardHeader title={<Typography variant="h6">Lead's Feedback</Typography>} />
           <CardContent>
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
               <Box sx={{ position: "relative" }}>
                 {readOnly ? (
                   shared ? (
@@ -276,91 +371,185 @@ export default function ParLeadReviewPanel({
                 )}
               </Box>
 
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Typography sx={{ flexShrink: 0 }}>Rating:</Typography>
-                {readOnly ? (
-                  parRatingData.parRating ? (
-                    <Chip size="small" label={parRatingData.parRating} />
-                  ) : (
-                    <Typography color="text.secondary">N/A</Typography>
-                  )
-                ) : (
-                  <TextField
-                    select
-                    label="Select Rating"
-                    size="small"
-                    fullWidth
-                    value={parRatingValue}
-                    onChange={(e) => setParRatingValue(e.target.value)}
-                    disabled={ratingUpdate.isPending}
-                  >
-                    {(cycle.parCycleConfigurations?.parRatings ?? []).map((r) => (
-                      <MenuItem key={r} value={r}>
-                        {r}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
-              </Box>
-
-              {!readOnly && parRatingValue === TOP_5_20_ENABLED_RATING && (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={specialRatingConfirmed}
-                      onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                      disabled={ratingUpdate.isPending}
-                    />
-                  }
-                  label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
-                />
-              )}
-
-              {parRatingValue === TOP_5_20_ENABLED_RATING && (
+              {/* Rating + special-rating + who-shared, grouped in one shaded
+                  block rather than loose rows — these three are all "the
+                  verdict", distinct from the comment above and the actions
+                  below. */}
+              <Stack spacing={1.5} sx={{ p: 1.75, borderRadius: 1.5, bgcolor: "action.hover" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Typography sx={{ flexShrink: 0 }}>Top 5%/20% Rating:</Typography>
+                  <Typography variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                    Rating
+                  </Typography>
                   {readOnly ? (
-                    <Chip size="small" label={specialRating} />
+                    parRatingData.parRating ? (
+                      <Chip size="small" label={parRatingData.parRating} />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        N/A
+                      </Typography>
+                    )
                   ) : (
                     <TextField
                       select
-                      label="Select Top 5%/20% Rating"
+                      label="Select Rating"
                       size="small"
                       fullWidth
-                      value={specialRating}
-                      onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
-                      disabled={!specialRatingConfirmed || ratingUpdate.isPending}
+                      value={parRatingValue}
+                      onChange={(e) => setParRatingValue(e.target.value)}
+                      disabled={ratingUpdate.isPending}
                     >
-                      <MenuItem value="NONE">N/A</MenuItem>
-                      <MenuItem value="TOP5P">Top 5%</MenuItem>
-                      <MenuItem value="TOP20P">Top 20%</MenuItem>
+                      {(cycle.parCycleConfigurations?.parRatings ?? []).map((r) => (
+                        <MenuItem key={r} value={r}>
+                          {r}
+                        </MenuItem>
+                      ))}
                     </TextField>
                   )}
                 </Box>
-              )}
 
-              {readOnly && parRatingData.parRatingSharedBy && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Typography sx={{ flexShrink: 0 }}>PAR shared by:</Typography>
-                  <Chip size="small" label={parRatingData.parRatingSharedBy} />
-                </Box>
-              )}
+                {parRatingValue === top5p20pEnabledRating && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Typography variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                      Top 5%/20%
+                    </Typography>
+                    {readOnly ? (
+                      <Chip size="small" label={specialRating} />
+                    ) : (
+                      <TextField
+                        select
+                        label="Select Top 5%/20% Rating"
+                        size="small"
+                        fullWidth
+                        value={specialRating}
+                        onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
+                        disabled={!specialRatingConfirmed || ratingUpdate.isPending}
+                      >
+                        <MenuItem value="NONE">N/A</MenuItem>
+                        <MenuItem value="TOP5P">Top 5%</MenuItem>
+                        <MenuItem value="TOP20P">Top 20%</MenuItem>
+                      </TextField>
+                    )}
+                  </Box>
+                )}
 
-              {!readOnly && !employeeHasStarted && (
-                <Typography color="warning.main" textAlign="right" sx={{ mb: 1 }}>
-                  * Sharing lead's feedback is disabled until employee PAR is started
-                </Typography>
-              )}
+                {!readOnly && parRatingValue === top5p20pEnabledRating && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={specialRatingConfirmed}
+                        onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
+                        disabled={ratingUpdate.isPending}
+                      />
+                    }
+                    label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
+                    sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.8rem" } }}
+                  />
+                )}
+
+                {!readOnly && parRatingValue === evidenceEnabledRating && (
+                  <Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={evidenceConfirmed}
+                          onChange={(e) => setEvidenceConfirmed(e.target.checked)}
+                          disabled={ratingUpdate.isPending}
+                        />
+                      }
+                      label={`Performance gaps were discussed, and the employee has been informed of the "${evidenceEnabledRating}" rating, and at least two discussions were held.`}
+                      sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.8rem" } }}
+                    />
+
+                    {pickerError === "ACCESS_DENIED" && (
+                      <Alert severity="warning" sx={{ my: 1 }}>
+                        Google Drive access was denied. Please try again and grant access when prompted.
+                      </Alert>
+                    )}
+                    {pickerError && pickerError !== "ACCESS_DENIED" && (
+                      <Alert severity="warning" sx={{ my: 1 }}>
+                        Google sign-in popup was blocked, or the picker couldn't load. Please allow popups for this site and try again.
+                      </Alert>
+                    )}
+
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Google size={16} />}
+                      disabled={!evidenceConfirmed || ratingUpdate.isPending || isPickerLoading}
+                      onClick={() => openPicker(handleFilesSelected)}
+                      sx={{ mt: 1, mb: driveFiles.length > 0 ? 1 : 0 }}
+                    >
+                      {isPickerLoading ? "Opening…" : driveFiles.length > 0 ? "Attach more files" : "Attach from Google Drive"}
+                    </Button>
+
+                    {driveFiles.length > 0 && (
+                      <Stack spacing={1}>
+                        {driveFiles.map((file) => (
+                          <ParDriveFileChip key={file.id} file={file} onRemove={() => handleRemoveFile(file.id)} disabled={ratingUpdate.isPending} />
+                        ))}
+                      </Stack>
+                    )}
+
+                    {evidenceConfirmed && driveFiles.length === 0 && (
+                      <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
+                        At least one attached file is required before sharing.
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+
+                {readOnly && parRatingData.parPerformanceNoticeAck && parRatingData.parRating === evidenceEnabledRating && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Performance gaps were discussed, and the employee has been informed of the "{evidenceEnabledRating}" rating, and at least
+                      two discussions were held.
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {parRatingData.parPerformanceNoticeAck
+                        .split(/\r?\n/)
+                        .filter((line) => line.trim() !== "")
+                        .map((line) => (
+                          <Link
+                            key={line}
+                            component="button"
+                            variant="body2"
+                            onClick={() => window.open(line.trim(), "_blank", "noopener,noreferrer")}
+                            sx={{ display: "flex", alignItems: "center", gap: 1, textAlign: "left" }}
+                          >
+                            <ExternalLinkIcon size={14} />
+                            {line}
+                          </Link>
+                        ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {readOnly && parRatingData.parRatingSharedBy && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Typography variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                      Shared by
+                    </Typography>
+                    <Chip size="small" label={parRatingData.parRatingSharedBy} />
+                  </Box>
+                )}
+              </Stack>
 
               {!readOnly && (
-                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
-                  <Button variant="outlined" disabled={!canSaveDraft} onClick={() => submit("DRAFT")}>
-                    Save draft
-                  </Button>
-                  <Button variant="contained" disabled={!canShare} onClick={() => setConfirming(true)}>
-                    Share
-                  </Button>
-                </Box>
+                <>
+                  {!employeeHasStarted && (
+                    <Alert severity="warning" sx={{ py: 0.25 }}>
+                      Sharing is disabled until the employee's own PAR is started.
+                    </Alert>
+                  )}
+                  <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, pt: 1, borderTop: 1, borderColor: "divider" }}>
+                    <Button variant="outlined" disabled={!canSaveDraft} onClick={() => submit("DRAFT")}>
+                      Save draft
+                    </Button>
+                    <Button variant="contained" disabled={!canShare} onClick={() => setConfirming(true)}>
+                      {isAdminView ? "Save and Share" : "Share"}
+                    </Button>
+                  </Box>
+                </>
               )}
             </Stack>
           </CardContent>
@@ -379,6 +568,27 @@ export default function ParLeadReviewPanel({
           </CardContent>
         </Card>
       </Grid>
+
+      {isAdminView && (
+        <Grid size={12}>
+          <Accordion defaultExpanded={Boolean(savedAdminComment)}>
+            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>
+              <Typography variant="h6">Admin Comment</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {readOnly ? (
+                savedAdminComment ? (
+                  <ParCommentView html={savedAdminComment} />
+                ) : (
+                  <ParEmptyState text="Admin comment unavailable" />
+                )
+              ) : (
+                <ParRichTextField value={adminComment} onChange={setAdminComment} placeholder="Enter your comment here" />
+              )}
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
+      )}
 
       <Grid size={12}>
         {reviews.isLoading ? (
@@ -407,6 +617,32 @@ export default function ParLeadReviewPanel({
             onClick={() => submit("SHARED", { onSuccess: () => setConfirming(false) })}
           >
             {ratingUpdate.isPending ? "Sharing…" : "Share"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Warns before an admin force-unlocks editing, worded differently
+          when the record is already shared. */}
+      <Dialog open={adminEditConfirmOpen} onClose={() => setAdminEditConfirmOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{shared ? "Edit a Shared Review?" : "Edit PAR Details?"}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {shared
+              ? "This review has already been shared with the employee. Editing it will change what they see. Do you want to continue?"
+              : "This will let you edit the lead's feedback and rating on this employee's behalf. Do you want to continue?"}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAdminEditConfirmOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={shared ? "warning" : "primary"}
+            onClick={() => {
+              setAdminForceEdit(true);
+              setAdminEditConfirmOpen(false);
+            }}
+          >
+            Edit
           </Button>
         </DialogActions>
       </Dialog>

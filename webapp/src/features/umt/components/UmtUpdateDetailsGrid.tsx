@@ -41,6 +41,7 @@ import { CheckIcon, HistoryIcon, PencilIcon, XIcon } from "@wso2/oxygen-ui-icons
 import type { UmtUpdateSummary, UmtWorstCaseEstimateLogEntry } from "../api/umtUpdates";
 import type { UmtUpdateFieldChange } from "../api/useUmtUpdateFieldMutation";
 import { useUmtWorstCaseEstimateLog } from "../api/useUmtWorstCaseEstimateLog";
+import { formatCalendarDate, formatTimestamp } from "../lib/umtDates";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
 const { DataGrid: DataGridComponent } = DataGrid;
@@ -117,12 +118,12 @@ export default function UmtUpdateDetailsGrid({
         <UpdateField
           label="Best Case Date"
           loading={loading}
-          value={formatDate(update?.bestCaseEstimate)}
+          value={formatCalendarDate(update?.bestCaseEstimate)}
         />
         <UpdateField
           label="Most Likely Date"
           loading={loading}
-          value={formatDate(update?.mostLikelyEstimate)}
+          value={formatCalendarDate(update?.mostLikelyEstimate)}
         />
         <EditableWorstCaseDate
           id={id}
@@ -324,7 +325,7 @@ function EditableWorstCaseDate({
           ) : (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {formatDate(value)}
+                {formatCalendarDate(value)}
               </Typography>
               {canEdit && (
                 <Tooltip title={`Edit ${label}`}>
@@ -443,8 +444,8 @@ function EtaLogDialog({
 }
 
 const etaLogColumns: DataGrid.GridColDef[] = [
-  etaLogColumn("oldDate", "Old Date", 140, formatDate),
-  etaLogColumn("newDate", "New Date", 140, formatDate),
+  etaLogColumn("oldDate", "Old Date", 140, formatCalendarDate),
+  etaLogColumn("newDate", "New Date", 140, formatCalendarDate),
   etaLogColumn("timestamp", "Updated Timestamp", 200, formatTimestamp),
   etaLogColumn("changedBy", "Changed By", 180, displayValue),
 ];
@@ -576,21 +577,6 @@ function GitHubIssueLink({ value }: { value: string | null | undefined }) {
   );
 }
 
-// The backend models these as java.util.Date and serialises them as UTC
-// midnight instants (e.g. "2026-10-01T00:00:00.000Z"), but they MEAN a calendar
-// date. Read and write them in UTC; formatting them in the viewer's zone moves
-// the day backwards at every negative UTC offset. Deliberately not applied to
-// formatTimestamp — reportedDate and the like are genuine instants, and showing
-// those in the reader's own zone is correct.
-function formatDate(value: string | null | undefined): string {
-  return formatDateValue(value, {
-    day: "2-digit",
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric",
-  });
-}
-
 // Rebuild the UTC calendar day as a local-midnight Date: the DatePicker and
 // `shouldDisableDate` both read local fields, so the day-of-week check and the
 // displayed day have to agree with the UTC day the backend stored.
@@ -607,30 +593,6 @@ function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function formatTimestamp(value: string | null | undefined): string {
-  return formatDateValue(value, {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    second: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatDateValue(
-  value: string | null | undefined,
-  options: Intl.DateTimeFormatOptions,
-): string {
-  const normalizedValue = displayValue(value);
-  if (normalizedValue === "N/A") return normalizedValue;
-
-  const date = new Date(normalizedValue);
-  return Number.isNaN(date.getTime())
-    ? displayValue(undefined)
-    : new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
 function displayValue(value: string | number | null | undefined): string {

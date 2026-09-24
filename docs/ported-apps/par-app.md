@@ -1,10 +1,12 @@
 # PAR (Performance Appraisal Review) — functional specification
 
-**Status:** the employee-facing half of par-app (all five tabs, including F2F) is ported and live under
-the Me perspective. The Lead Portal is fully ported (all five tabs) and lives under People Ops. Admin
-Portal is not started. Written from the source and cross-checked against the running staging app
-(screenshots) — this is the reference for verifying the port and for writing test cases against it, not
-a proposal.
+**Status:** the migration is functionally complete. The employee-facing half of par-app (all five tabs,
+including F2F) is ported and live under the Me perspective. The Lead Portal is fully ported (all five
+tabs, including evidence attachments, §8.1) and lives under People Ops. The Admin Portal is fully ported
+(Ongoing, History, and Configurations, §9) and lives under People Ops too. §10 lists the two remaining
+items — both deliberate exclusions, not gaps. Written from the source and cross-checked against the
+running staging app (screenshots) — this is the reference for verifying the port and for writing test
+cases against it, not a proposal.
 
 **Source of truth for behaviour:** `digiops-hr/apps/par-app/webapp/src` — `OngoingCycleView.tsx` and
 its panels/components for the five tabs below (`views/ongoingCycleView/`, `components/common/
@@ -24,8 +26,10 @@ rating *other people's* PAR is People-Ops-team work, so the Lead Portal stays un
 `/people-ops/performance/lead`, gated on par-app's own `Role.TEAM_LEAD` (`ParRequiresTeamLeadRoute`) —
 **Direct Reports**, **Additional Reports**, **Report Chain**, **Employee History**, and
 **Top 5%/20% Allocation** (`direct-reports` / `additional-reports` / `report-chain` /
-`employee-history` / `allocation`). Backend is par-app's own Ballerina service, configured as
-`ONE_WSO2_PAR_BACKEND_URL`.
+`employee-history` / `allocation`). The Admin Portal lives at `/people-ops/performance/admin`, gated
+on a client-side Asgardeo-group check (`ParRequiresAdminRoute`, `useParIsAdmin`) rather than a backend
+role field — **Ongoing** (`ongoing`) is its only route so far. Backend is par-app's own Ballerina
+service, configured as `ONE_WSO2_PAR_BACKEND_URL`, for all three.
 
 ---
 
@@ -34,7 +38,7 @@ rating *other people's* PAR is People-Ops-team work, so the Lead Portal stays un
 Every employee goes through a PAR cycle: write a self-assessment, take part in 360° feedback (both
 asking colleagues to review you and reviewing colleagues who asked you), and see your record once
 your lead has rated you. There is no separate people-management surface here — that's the Lead
-Portal (§8, fully ported) and the Admin Portal (not yet started — see §9).
+Portal (§8, fully ported) and the Admin Portal (§9, Ongoing tab ported; §10 for what's left).
 
 **Who sees which tabs** is decided by one fact: whether the employee has a lead
 (`OngoingCycleView.tsx`'s `employeeInfo.leadEmail !== null`, ported as `useParHasLead` reading
@@ -250,9 +254,12 @@ and a per-row Copy Email action, matching `TeamSummary.tsx` exactly.
 
 Opening a member's row (`ParLeadReviewTabs.tsx`, ports `Review.tsx`) gives the full three-tab review
 screen: a back button + employee Avatar/name chip, then **Lead's Feedback** / **360 Reviews** / **F2F**
-tabs and a **PAR HISTORY** button, matching source's own tab bar and layout exactly (every
-`isAdminAuditViewOn`/`isAdminHistoryViewOn`-gated branch, e.g. "Update Status", left out — Admin Portal,
-out of scope for this portal).
+tabs and a **PAR HISTORY** button, matching source's own tab bar and layout exactly. The same component
+also renders the Admin Portal's version of this screen (`isAdminView` — see §9.6): two tabs only,
+**Lead's Feedback** and **Update Status**, no 360 Reviews/F2F/PAR HISTORY. Source's own
+`isAdminHistoryViewOn` (the History tab's read-only mode, §9.7) is never threaded into this screen at
+all — confirmed against source directly — so this port doesn't add any Admin-History-specific branch
+here either; the screen's existing default-read-only/`adminForceEdit` toggle already covers it.
 
 - **Lead's Feedback** (`ParLeadReviewPanel.tsx`, the lead-only path of `LeadReviewPanel.tsx`): rating +
   Top 5%/20% special-rating selection with its confirmation checkbox, a rich-text lead comment with 5s
@@ -278,9 +285,24 @@ out of scope for this portal).
   employee picker). The shared history-rendering logic lives in `ParEmployeeHistoryView.tsx`, which this
   modal wraps in a `Dialog`.
 
-Not ported here: evidence attachments (`parPerformanceNoticeAck`'s Google Drive picker — a capability
-nothing else in this app has), and "Sync an Employee" (`TeamSummary.tsx`'s temporary org-chart-search
-dialog for this cycle).
+Also ported here: evidence attachments. Rating an employee "Needs Improvement" (`evidenceEnabledRating`,
+resolved with a three-step fallback — `cycle.parCycleConfigurations.evidenceEnabledRating` (not on the
+wire yet; `ParCycleConfigurations` is a closed record on source's backend with no such field today, a
+planned addition tracked as a follow-up there) → the `window.config` value (`apiConfig.ts`'s own export,
+defaulting to source's default) → the hardcoded default, same three-step shape the Top 5%/20% checkbox's
+trigger rating (`top5p20pEnabledRating`) now resolves with too. Neither is a bare hardcoded constant,
+since Admin Portal → Configurations (§9.8) lets an admin freely rename or remove entries from the
+org-wide rating list, and a hardcoded trigger name would silently stop matching if that happened; once
+the backend field ships, this resolves per-cycle with no frontend change needed) requires confirming a
+checkbox ("performance gaps were discussed... at least two discussions were held") before **Attach from
+Google Drive** enables; **Share** stays disabled until at least one file is attached. Files are picked via
+`useGoogleDrivePicker.ts` (ported verbatim from source's own hook of the same name — lazy-loads Google
+Identity Services + the Picker API, requests a `drive.readonly` OAuth token via
+`ONE_WSO2_PAR_GOOGLE_OAUTH_CLIENT_ID`), shown as removable chips (`ParDriveFileChip.tsx`, oxygen-ui icons
+in place of source's five MUI ones) while editing or a plain link list once shared. `parPerformanceNoticeAck`
+is one newline-delimited URL string on the wire, not an array — `util/parDriveFile.ts`'s `parseSavedUrls`
+is the only place that reconstructs the file list from it, matching source's own `parseSavedUrls`. Not
+ported here: "Sync an Employee" (`TeamSummary.tsx`'s temporary org-chart-search dialog for this cycle).
 
 ### 8.2 Additional Reports (`ParLeadAdditionalReportsTab.tsx`)
 
@@ -354,15 +376,186 @@ here too). A quota whose Top 5% is 1 and Top 20% is 0 is a small-team special ca
 displays "1" too (not the real 0), alongside a warning explaining the pair represents one combined
 slot, not two.
 
-## 9. Not yet ported
+## 9. Admin Portal
 
-- **Lead Portal — evidence attachments and every Admin-only branch** of the employee review screen
-  (see §8.1) — evidence attachments need a Google Drive picker integration nothing else in this app has;
-  the Admin-only branches (force-edit-after-share, share-on-behalf-of-employee, "Update Status" tab) are
-  Admin Portal, out of scope for this portal.
-- **Admin Portal** — source's `/admin-portal` (`views/adminPortal/`): create/configure cycles, assign
-  special-rating quotas, monitor org-wide completion, generate reports, send/schedule reminders, global
-  configuration.
+**Source of truth:** `views/adminPortal/AdminPortal.tsx` and `panels/OngoingPanel.tsx`, gated in source
+by `invokerDetails.isAdmin` — a JWT `groups`-claim check server-side. `useParIsAdmin` reads that same
+check back from `GET /employees/{workEmail}`'s own `isAdmin` field on a self-lookup (`useParEmployeeInfo`),
+the same way `isTeamLead` is already read — not a separately configured group name reproduced
+client-side. This is presentation only — every admin endpoint still re-derives `isAdmin` from the JWT
+server-side and 403s a caller who doesn't hold the group, so a stale or slow fetch here can only hide
+the screen from a real admin, never grant access it shouldn't. Both `AdminPortal.tsx` tabs are ported —
+**Ongoing** (§9.1–9.6) and **History** (§9.7) — plus source's separate `/settings` route, folded in here
+as a third tab, **Configurations** (§9.8).
+
+### 9.1 Ongoing — cycle lifecycle (`ParAdminOngoingTab.tsx`)
+
+Ports `OngoingPanel.tsx`'s three-state machine, driven by polling `GET /par-cycles?status=` for
+`OPEN`/`PENDING_QUOTA`/`PENDING` in parallel:
+
+- **No cycle in any of those statuses** — "PAR cycle not in progress." and a **Create Cycle** button
+  (§9.2). After creating one, the tab shows "Setting up the new cycle…" and polls `PENDING` every 10s
+  until the backend finishes seeding special-rating groups asynchronously and the cycle moves to
+  `PENDING_QUOTA` — matching source's own `handleFormClose` polling loop.
+- **`PENDING_QUOTA`** — quota assignment (§9.3).
+- **`OPEN`** — the Org Summary dashboard (§9.4).
+
+### 9.2 Cycle creation (`ParCycleCreationDialog.tsx`)
+
+Ports `ParCreationForm.tsx`: name, start/end dates, evaluation window, and five deadlines (employee,
+360°, lead — must be strictly after the employee deadline — special-rating, F2F), each date-field
+floored at **tomorrow** (source's own `DatePicker`s all use `minDate={dayjs().add(1, "day")}`, one day
+stricter than the yup schema's own `>= today` rule, which only bounds the evaluation start date), plus
+the cycle's question/rating-scale configuration, prefilled from `GET /meta/configurations` (the
+non-sanitized response an admin gets). One deliberate deviation: source's own yup schema never
+validates the F2F deadline at all (it can be submitted empty, sending a literal `"Invalid date"` string
+to the backend); this port makes it required instead of reproducing that gap. `POST /par-cycles`
+creates the cycle; a confirmation dialog ("Start PAR Cycle") gates the submit.
+
+### 9.3 Quota assignment (`ParAssignQuota.tsx`)
+
+Ports `AssignQuota.tsx`: every ungrouped team (`GET /par-cycles/{id}/special-rating-groups`, no
+`leadEmail` — org-wide) in a filterable, multi-select `DataGrid`; selected teams become a named quota
+group (`ParGroupNameInputDialog.tsx`) with a default 5%/20% slot allocation computed from the group's
+combined headcount (`calculateDefaultQuotaValues` — 5%/20% of headcount rounded, each floored to at
+least 1, with the 20% figure then reduced by the 5% amount, since source's own quota model treats "top
+20%" as the band *above* the top 5%, not inclusive of it), editable and re-assignable to specific leads
+per group (`ParEditQuotaDialog.tsx`, capped at the default). **SAVE QUOTA VALUES** — enabled only once
+every team is grouped — validates the payload, `POST`s it (`POST
+.../special-rating-groups-quota`), then flips the cycle to `OPEN` (`PATCH
+/par-cycles/{id}`) — the same two-call sequence as source's own `confirmAndProceed`.
+
+### 9.4 Org Summary dashboard (`ParOrgSummary.tsx`)
+
+Ports `OrgSummary.tsx`. Header: cycle name/dates, then routine actions (**View Reports**, **Bulk
+Reminders** as outlined buttons; **Sync an Employee**, cycle-dates, and cycle-settings as icon buttons)
+separated by a divider from **Close Cycle** — a `color="error"` text button rather than styled like the
+others, so the one irreversible action here isn't a misclick away from the routine ones. Confirming it
+("Close ongoing PAR cycle?" / "This means members of your organization can't do changes to the current
+PAR anymore." / **Proceed**) `PATCH`es the cycle to `CLOSED`, matching source's own dialog copy exactly.
+Below that, three KPI tiles (Employee PAR / Lead's Feedback / F2F completion, colored by how far behind
+each is) summed from `GET /par-cycles/{id}/teams`'s per-team counts, with a **Completion Overview**
+drill-in (an icon next to the tiles, ports `Completion.tsx`) that re-expresses the same team data as
+per-team percentages instead of raw counts, in its own `DataGrid` (BU/Department/Team + three percentage
+columns, F2F hidden by default). Then four tabs:
+
+- **Team View** — every team (`GET /par-cycles/{id}/teams`, no `leadEmail`), same columns as the Lead
+  Portal's own team roster grid plus quota slot counts; a row opens that team's roster
+  (`ParOrgTeamRoster.tsx`, reusing `ParLeadTeamRoster.tsx`).
+- **Employee View** — every participant (`GET /par-cycles/{id}/participants`, no `leadEmail`); a row's
+  action icon is "Review" (pencil) or "View" (eye) depending on whether that employee's `parLeadStatus`
+  is `SHARED` — sourced from `useParAllRatings` (the same fetch View Reports uses), since the
+  participants resource itself carries no status. Source's own version of this same check reads from a
+  fetch that never carries status either, making it dead code there; this port makes the check work for
+  real instead of reproducing the bug. Both this tab and Team View's roster open the employee review
+  screen (§9.6) via the same `ParLeadReviewTabs`/`ParLeadReviewPanel` the Lead Portal uses, with
+  `isAdminView` set.
+- **Rejected Reviews** — declined/withdrawn 360° requests (`GET /par-cycles/{id}/rejected-reviews`);
+  names aren't on the wire, resolved against the participants list. A restore action ("Restore Review" /
+  "Are you sure you need to restore the declined review request?" / **Yes**) `PATCH`es the same
+  `.../employees/{email}/review` resource the employee-side review flow uses, with
+  `par360ReviewStatus: "PENDING"`.
+- **Quota Allocations** — ports `SpecialRatingAllocationView.tsx`'s `isAdminView=true` branch: the same
+  grouped-card view the Lead Portal's own Top 5%/20% Allocation tab shows (§8.5, shared via
+  `ParAllocationGroupsList.tsx`), fed by `GET .../special-rating-groups-quota` with no `leadEmail` —
+  every quota group org-wide rather than one lead's own.
+
+Team View, Employee View, and Rejected Reviews each get a `Columns`/`Filter`/`Density` grid toolbar (no
+export — this app already has a dedicated View Reports flow for that, and these three grids show live,
+in-progress status for named employees); Quota Assignment's own grid additionally gets **Export**,
+matching source's `AssignQuota.tsx`, the one admin grid source itself offers it on.
+
+Four more header-triggered dialogs:
+
+- **View Reports** (`ParViewReportsDialog.tsx`, ports `Report.tsx`) — every `ParRating` in the cycle
+  (`GET /par-cycles/{id}/par-ratings`) in one searchable `DataGrid`; Company and Location are present on
+  the wire but hidden by default (toggleable via Columns), matching source exactly.
+- **Bulk Reminders** (`ParBulkReminderDialog.tsx`, ports `BulkReminderModal.tsx`'s admin mode) — Employee
+  / Lead / Top 5%/20% Rating reminders (360° Reminder is lead-only, hidden here, matching source); each
+  `PATCH`es its own `/reminders/schedule-{kind}-reminders` resource, admin-gated server-side, distinct
+  from the Lead Portal's own lead-scoped `schedule-360-reminders`.
+- **Cycle Settings** (`ParCycleSettingsDialog.tsx`, ports `ParCycleSettingsForm.tsx`) — the same fields
+  as cycle creation minus the name and the (always immutable) evaluation start date; a true partial
+  `PATCH` — only the fields actually being edited go out, not a round-trip of the whole configuration.
+- **Sync an Employee** (`ParSyncEmployeeDialog.tsx`, ports `EmployeeSyncModal.tsx`'s admin mode) — pick
+  an employee (reuses Leave's org-wide directory for the picker, same deviation as the Lead Portal's own
+  Avatars), confirm, `POST .../employees/{email}/sync`.
+
+### 9.5 Cycle Dates (shared)
+
+The header's calendar icon opens the same `ParCycleDatesStepper.tsx` the Lead Portal's Direct Reports
+tab uses, at `width: 80vw` rather than a fixed dialog breakpoint — source's own stepper needs the room
+for five steps.
+
+### 9.6 Employee review screen in admin mode
+
+`ParLeadReviewTabs.tsx`/`ParLeadReviewPanel.tsx`, the same components the Lead Portal uses, extended
+with an `isAdminView` prop (see the note in §8.1) rather than duplicated:
+
+- Only two tabs show — **Lead's Feedback** and **Update Status** — not 360 Reviews, F2F, or PAR HISTORY.
+- The panel opens **read-only by default**, even for a still-in-progress record, and must be explicitly
+  unlocked via an edit icon (a confirmation dialog warns first, worded differently once the record is
+  already shared) — unlike the lead's own view, where an unshared record is editable by default.
+  Deadline gating uses the cycle's own closing date (`parCycleEndDate`) instead of the lead's feedback
+  deadline. Autosave is disabled. The "employee hasn't started yet" gate on Share is removed — an admin
+  can force a rating through regardless of where the employee's own side is — and the Share button reads
+  **Save and Share**.
+- An **Admin Comment** accordion (rich text, same editor as the lead/employee comment fields) appears
+  below the rating block — `parAdminComment`, a field the backend accepts only from an admin caller
+  (`checkForModifiableFieldsForLead`/`-ForSelf` both reject a non-empty value from anyone else) and
+  strips from every non-admin response.
+- **Update Status** (`ParUpdateStatusPanel.tsx`, ports `components/common/UpdateStatusPanel.tsx`) — a
+  direct override of four workflow fields a normal review flow only ever moves one at a time: Employee
+  PAR Status, Lead's Feedback Status, F2F Status, and F2F Date. Employee status locks once the lead has
+  shared; F2F only opens up once the lead's feedback is shared, or is already Completed (so a mistaken
+  entry can be reverted). All four `PATCH` the same per-rating resource `ParLeadReviewPanel.tsx` uses,
+  distinct from it: that one edits rating/comment *content*, this one edits workflow *state*.
+
+### 9.7 History (`ParAdminHistoryTab.tsx`)
+
+Ports `HistoryPanel.tsx`: every closed real cycle (`GET /par-cycles?status=CLOSED`, reusing the same
+endpoint the Lead Portal's own Employee History cycle picker already calls) merged with every distinct
+legacy (pre-par-app, PeopleHR-era) cycle (`GET /legacy-par-history-cycles`, admin-only, gated by the
+same `enableLegacyParDataView` configurable as the per-employee legacy endpoint §8.4 already calls) into
+one `DataGrid`, latest end date first, each legacy row tagged with a "Legacy" chip.
+
+- **A real cycle row** reopens `ParOrgSummary.tsx` (§9.4) itself, in a new `historyMode` — every mutating
+  header action (Bulk Reminders, Sync an Employee, Cycle Dates, Cycle Settings, Close Cycle) is hidden,
+  leaving only **View Reports**, matching source's own `isAdminHistoryViewOn` branch of `OrgSummary.tsx`
+  exactly. A "History /" breadcrumb replaces the plain heading. Deliberately *not* touched: the employee
+  review screen (§9.6) and the Rejected Reviews restore action — source's own `isAdminHistoryViewOn` is
+  never threaded into either of those, so this port doesn't invent new read-only behavior there either;
+  the review screen's existing default-read-only/`adminForceEdit` toggle already covers it.
+- **A legacy cycle row** opens a legacy-only drill-down (`ParAdminLegacyCycleView.tsx`), since legacy data
+  has no real cycle/team model to reuse `ParOrgSummary` for: `GET .../legacy-par-history-cycles/{cycleName}/participants`
+  grouped by department + reviewer name (`groupLegacyParticipantsByTeam` — legacy rows have no real team
+  concept, `par_team` is always null) into a `DataGrid` of groups, each with Employee-PAR/Lead's-Feedback
+  completion counts and 5%/20% slot counts derived from `overallSpecialRating`. A group row opens that
+  group's records in a second `DataGrid` (Employee/Reviewer/Overall Rating/Completed Date); a record row
+  opens its full detail — the same rendering Employee History (§8.4) shows for one employee's own legacy
+  record, extracted into a shared `ParLegacyRecordDetail.tsx` so both places render it identically instead
+  of duplicating the accordion/chip/360-feedback wiring. Unlike source, every level here is a `DataGrid`
+  rather than a plain table, matching how every other legacy-table screen in this port (e.g. Team View,
+  §9.4) has already upgraded from source's plain tables.
+
+### 9.8 Configurations (`ParAdminGlobalConfigTab.tsx`)
+
+Ports `views/globalSettings/GlobalSettings.tsx`, source's own standalone `/settings` route — folded into
+the Admin Portal's tab bar here instead of a separate top-level route, since it's admin-only functionality
+that belongs alongside Ongoing/History rather than its own nav entry. Edits the org-wide defaults
+`ParCycleCreationDialog.tsx` (§9.2) prefills new cycles from — the employee/360° question text and the
+master PAR/360 rating-option lists — via `GET`/`PUT meta/configurations`; editing here never touches a
+cycle already created, only what the next one starts with. Field set, validation (both questions required,
+both rating lists non-empty), and the freeSolo multi-chip rating pickers are a direct reuse of
+`ParCycleCreationDialog.tsx`'s own "Cycle configuration" section. Save is confirmation-gated
+("Update global PAR configurations?"); on success, invalidating the same query key
+`ParCycleCreationDialog.tsx`'s `useParGlobalConfig()` call reads means the next cycle-creation dialog
+opened picks up the change immediately, with no separate wiring needed there.
+
+## 10. Not yet ported
+
+No functional gaps remain — the two items below were each deliberately left out, not missed.
+
 - **PAR History's Chain view** — source's `ParHistory.tsx` has a second, lead-only tab alongside "My
   History" (`views/parHistory/ChainViewTab.tsx`): a lead's view of their reports' PAR history across
   cycles, reached by browsing the org chart. A version of this was built and then deliberately removed —

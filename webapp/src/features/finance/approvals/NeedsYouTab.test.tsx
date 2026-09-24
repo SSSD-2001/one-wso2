@@ -17,7 +17,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -96,6 +97,9 @@ vi.mock("../opd/useOpd", () => ({
       error: new Error("opd backend down"),
     };
   },
+  // Only feeds the "Filter by email" dropdown's options — nothing under test
+  // cares which addresses it offers.
+  useOpdEmployees: () => ({ data: [], isLoading: false, isError: false }),
 }));
 
 // An expense claim now takes over the whole tab — the app's own Lead/Finance
@@ -247,8 +251,32 @@ describe("when a role is missing", () => {
   });
 });
 
+// FilterHolder.tsx-style narrowing: a claim of one employee or one id, applied
+// to every queue this tab runs — otherwise the only way to find a claim is to
+// scroll the whole company's, across two apps at once.
+describe("narrowing by employee or claim id", () => {
+  it("sends no email or id by default", async () => {
+    show();
+    await waitFor(() => expect(searches.expense.length + searches.opd.length).toBeGreaterThan(0));
+    for (const p of [...searches.expense, ...searches.opd]) {
+      expect(p.email).toBeUndefined();
+      expect(p.ids).toBeUndefined();
+    }
+  });
+
+  it("narrows every queue to one claim id", async () => {
+    show();
+    fireEvent.change(await screen.findByLabelText("Filter by claim ID"), {
+      target: { value: "C-42" },
+    });
+    await waitFor(() => expect(searches.expense.at(-1)?.ids).toEqual(["C-42"]));
+    expect(searches.opd.at(-1)?.ids).toEqual(["C-42"]);
+  });
+});
+
 describe("what it shows", () => {
   it("groups by claim type and counts each group", async () => {
+    flags.lead = false;
     data.opd = [opdClaim({})];
     data.finance = [expenseClaim({ statusDetails: { status: "PENDING_FINANCE", leadApprovedDate: iso(2026, 7, 25) } })];
     show();
@@ -256,9 +284,10 @@ describe("what it shows", () => {
     expect(screen.getByText(/Expense claims · 1/)).toBeInTheDocument();
   });
 
-  // Someone holding both flags sees both kinds in one list, so each row has to
-  // say which decision it wants.
-  it("says which hat each expense row needs", async () => {
+  // Someone holding both flags decides one stage at a time via the toggle —
+  // the same "As lead / As finance" switch the Expense claims tab offers —
+  // rather than seeing both stages merged into one list.
+  it("shows one stage at a time via the toggle, not both merged", async () => {
     data.lead = [expenseClaim({ id: "EXP-LEAD" })];
     data.finance = [
       expenseClaim({
@@ -266,17 +295,41 @@ describe("what it shows", () => {
         statusDetails: { status: "PENDING_FINANCE", leadApprovedDate: iso(2026, 7, 25) },
       }),
     ];
+    const user = userEvent.setup();
     show();
-    const leadRow = (await screen.findByText("EXP-LEAD")).closest("tr")!;
-    const finRow = screen.getByText("EXP-FIN").closest("tr")!;
-    expect(within(leadRow).getByText("as lead")).toBeInTheDocument();
-    expect(within(finRow).getByText("as finance")).toBeInTheDocument();
+
+    // Opens on lead, since lead wins the default when both are held.
+    expect(await screen.findByText("EXP-LEAD")).toBeInTheDocument();
+    expect(screen.queryByText("EXP-FIN")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "As finance" }));
+    expect(await screen.findByText("EXP-FIN")).toBeInTheDocument();
+    expect(screen.queryByText("EXP-LEAD")).not.toBeInTheDocument();
   });
 
-  it("names both stages in the group heading when a person holds both", async () => {
+  it("offers the toggle only to someone holding both flags", async () => {
+    flags.finance = false;
     data.lead = [expenseClaim({})];
     show();
-    expect(await screen.findByText(/you decide as lead and as finance/)).toBeInTheDocument();
+    await screen.findByText("EXP-1");
+    expect(screen.queryByRole("button", { name: "As lead" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "As finance" })).not.toBeInTheDocument();
+  });
+
+  it("names the currently selected stage in the group heading", async () => {
+    data.lead = [expenseClaim({})];
+    data.finance = [
+      expenseClaim({
+        id: "EXP-FIN",
+        statusDetails: { status: "PENDING_FINANCE", leadApprovedDate: iso(2026, 7, 25) },
+      }),
+    ];
+    const user = userEvent.setup();
+    show();
+    expect(await screen.findByText(/you decide as lead$/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "As finance" }));
+    expect(await screen.findByText(/you decide as finance$/)).toBeInTheDocument();
   });
 
   it("names only the stage a person actually holds", async () => {
@@ -307,6 +360,7 @@ describe("what it shows", () => {
 // through. Blanking the screen would hide work that is perfectly reachable.
 describe("when one backend is down", () => {
   it("keeps showing the queue that did load", async () => {
+    flags.lead = false;
     data.opdFails = true;
     data.finance = [expenseClaim({ id: "EXP-OK" })];
     show();
@@ -354,10 +408,12 @@ describe("opening a claim", () => {
     expect(screen.queryByRole("button", { name: "Review" })).not.toBeInTheDocument();
   });
 
-  // The lead/finance split the row already told the approver about is the
-  // same split the review screen has to answer with — otherwise Approve
-  // decides the wrong stage.
+  // The toggle's own stage is the same one the review screen has to answer
+  // with — otherwise Approve decides the wrong stage.
   it("opens a finance-stage claim on FINANCE, not LEAD", async () => {
+    // Finance only, so the tab opens straight on the finance queue with no
+    // toggle to click through first.
+    flags.lead = false;
     data.finance = [
       expenseClaim({
         id: "EXP-FIN",

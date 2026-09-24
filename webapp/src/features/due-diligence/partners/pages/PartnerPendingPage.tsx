@@ -32,7 +32,7 @@ import { DUE_DILIGENCE_EYEBROW } from "@constants/dueDiligenceApps";
 import { useDueDiligenceGate } from "@features/due-diligence/api/useDueDiligenceGate";
 import ConfirmationDialog, {
   type ConfirmationContent,
-} from "@features/due-diligence/shared/components/ConfirmationDialog";
+} from "@components/confirmation-dialog/ConfirmationDialog";
 import { authedGet, humanizeHttpError } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { dueDiligenceServiceUrls } from "@config/apiConfig";

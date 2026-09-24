@@ -22,14 +22,20 @@ import path from "path";
 // employees' photos resolve to their Google account avatar
 // (lh3.googleusercontent.com and friends) rather than a gateway URL, so
 // img-src also allows Google's avatar CDN.
+//
+// The Lead Portal's evidence-attachment picker (useGoogleDrivePicker.ts)
+// loads Google Identity Services + the Picker API at runtime, needing three
+// more origins: script-src for the two loaded scripts, connect-src for the
+// token exchange + Drive API calls they make, and frame-src for the
+// Picker's own iframe (hosted on docs.google.com, not inline).
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' https://accounts.google.com https://apis.google.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com",
   "font-src 'self' data: https://wso2.cachefly.net",
-  "connect-src 'self' https://*.wso2.com https://*.asgardeo.io",
-  "frame-src 'self' blob: data: https://*.asgardeo.io",
+  "connect-src 'self' https://*.wso2.com https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com",
+  "frame-src 'self' blob: data: https://*.asgardeo.io https://docs.google.com https://accounts.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

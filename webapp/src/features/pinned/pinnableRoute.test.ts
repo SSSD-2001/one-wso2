@@ -61,13 +61,13 @@ describe("pinnableRoute", () => {
   });
 
   it("treats query state as a distinct 'search' pin", () => {
-    const plain = pinnableRoute("/me/leave/general");
-    const filtered = pinnableRoute("/me/leave/general", "?status=pending");
+    const plain = pinnableRoute("/me/leave");
+    const filtered = pinnableRoute("/me/leave", "?status=pending");
     expect(plain.kind).toBe("page");
     expect(filtered.kind).toBe("search");
     // Distinct ids, so pinning the filtered view doesn't overwrite the plain one.
     expect(filtered.id).not.toBe(plain.id);
-    expect(filtered.href).toBe("/me/leave/general?status=pending");
+    expect(filtered.href).toBe("/me/leave?status=pending");
   });
 
   it("ignores an empty query string rather than calling it a search", () => {
@@ -101,12 +101,12 @@ describe("pinnableRoute", () => {
 describe("isKnownRoute", () => {
   it("distinguishes registry routes from guessed ones", () => {
     expect(isKnownRoute("/people-ops")).toBe(true);
-    expect(isKnownRoute("/me/leave/general")).toBe(true);
+    expect(isKnownRoute("/me/leave")).toBe(true);
     expect(isKnownRoute("/some/unknown-page")).toBe(false);
   });
 
   it("recognises a route with a trailing slash", () => {
-    expect(isKnownRoute("/me/leave/general/")).toBe(true);
+    expect(isKnownRoute("/me/leave/")).toBe(true);
   });
 });
 
