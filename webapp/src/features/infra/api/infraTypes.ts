@@ -33,3 +33,27 @@ export const INFRA_PRIVILEGE = {
     githubUserId: string | null;
     githubUsername: string | null;
   }
+  export interface InfraLead {
+    leadId: number;
+    leadEmail: string;
+    teamName: string;
+  }
+  export interface InfraEmployee {
+    firstName: string;
+    lastName: string;
+    workEmail: string;
+    employeeThumbnail?: string | null;
+  }
+  export interface InfraOrganization {
+    organizationId: number;
+    organizationName: string;
+    organizationVisibility: string;
+    organizationPlan: string;
+    /** 1 when the org allows issues, 0 when it does not. */
+    enableIssues: number | boolean;
+    defaultTeams?: string | null;
+  }
+  export interface InfraTopic {
+    topicId: number;
+    topicName: string;
+  }

@@ -25,36 +25,37 @@ export const INFRA_APPS: readonly MenuApp[] = [
     alwaysGroup: true,
     purpose: "Connect GitHub, request repositories, and review those requests.",
     items: [
-      {
-        id: "infra-github-new-repository",
-        label: "New Repository",
-        desc: "Request a new GitHub repository.",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-repository-access",
-        label: "Repository Access",
-        desc: "Default org/team access and extra repos from approved requests.",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-request-access",
-        label: "Request Access",
-        desc: "Request access to an existing repository.",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-my-requests",
-        label: "My Requests",
-        desc: "Your creation and access requests.",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-review-requests",
-        label: "Review Requests",
-        desc: "Approve or reject repository requests.",
-        requires: ["admin"],
-      },
+        {
+            id: "infra-github-new-repository",
+            label: "New Repository",
+            desc: "Request a new GitHub repository.",
+            path: "/infra/github/repository-requests",
+            requires: ["admin"],
+          },
+        {
+            id: "infra-github-repository-access",
+            label: "Repository Access",
+            desc: "Default org/team access and extra repos from approved requests.",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-request-access",
+            label: "Request Access",
+            desc: "Request access to an existing repository.",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-my-requests",
+            label: "My Requests",
+            desc: "Your creation and access requests.",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-review-requests",
+            label: "Review Requests",
+            desc: "Approve or reject repository requests.",
+            requires: ["admin"],
+        },
     ],
   },
   {
@@ -63,12 +64,12 @@ export const INFRA_APPS: readonly MenuApp[] = [
     icon: ShieldIcon,
     purpose: "Open the configured Looker Studio reports.",
     items: [
-      {
-        id: "infra-security-dashboard",
-        label: "Security Dashboard",
-        desc: "Device compliance, software compliancy, and security score.",
-        requires: ["admin"],
-      },
+        {
+            id: "infra-security-dashboard",
+            label: "Security Dashboard",
+            desc: "Device compliance, software compliancy, and security score.",
+            requires: ["admin"],
+        },
     ],
   },
   {
@@ -77,18 +78,18 @@ export const INFRA_APPS: readonly MenuApp[] = [
     icon: SettingsIcon,
     purpose: "Admin tables the GitHub forms read.",
     items: [
-      {
-        id: "infra-github-settings",
-        label: "GitHub Settings",
-        desc: "Organizations, topics, leads, default teams, repo-team leads.",
-        requires: ["admin"],
-      },
+        {
+            id: "infra-github-settings",
+            label: "GitHub Settings",
+            desc: "Organizations, topics, leads, default teams, repo-team leads.",
+            requires: ["admin"],
+        },
     ],
   },
 ];
 
 export const INFRA_ITEM_IDS: ReadonlySet<string> = new Set(
-  INFRA_APPS.flatMap((app) => app.items.map((it) => it.id)),
+    INFRA_APPS.flatMap((app) => app.items.map((it) => it.id)),
 );
 
 function eyebrowFor(key: string): { icon: (typeof INFRA_APPS)[number]["icon"]; label: string } {

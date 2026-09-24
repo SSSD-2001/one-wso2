@@ -147,6 +147,7 @@ import UmtHomePage from "@features/umt/pages/UmtHomePage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
+import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 
 export default function App() {
   return (
@@ -168,7 +169,13 @@ export default function App() {
             </>
           )}
           {isPreviewEnabled("infra") && (
-            <Route path="infra" element={<InfraHomePage />} />
+            <>
+              <Route path="infra" element={<InfraHomePage />} />
+              <Route
+                  path="infra/github/repository-requests"
+                  element={<InfraNewRepositoryPage />}
+              />
+            </>
           )}
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}

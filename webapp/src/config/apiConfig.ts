@@ -1028,6 +1028,19 @@ export const infraServiceUrls = {
   // GET /user-info — privileges, name, workEmail, githubUsername.
   // Callers not in employee/approver/admin groups get HTTP 403.
   userInfo: `${infraBackendUrl}/user-info`,
+  // GET /leads — active functional leads for the creation form.
+  leads: `${infraBackendUrl}/leads`,
+  // GET /employees — directory used by the CC picker.
+  employees: `${infraBackendUrl}/employees`,
+  // GET /organizations — active GitHub orgs. Drives visibility, plan, issues, and PR protection.
+  organizations: `${infraBackendUrl}/organizations`,
+  // GET /topics — topic catalog for the creation form.
+  topics: `${infraBackendUrl}/topics`,
+  // GET /teams?organization= — internal committer teams for that GitHub org.
+  teams: (organization: string) =>
+    `${infraBackendUrl}/teams?organization=${encodeURIComponent(organization)}`,
+  // GET /repository-requests — repository requests for the caller.
+  repositoryRequests: `${infraBackendUrl}/repository-requests`,
 };
 
 export const promotionServiceUrls = {
