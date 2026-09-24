@@ -44,7 +44,7 @@ import {
     type RepositoryStepValues,
 } from "./repositoryStep";
   
-export default function RepositoryStep({
+export default function RepositoryDetailsStep({
     values,
     showErrors,
     onChange,

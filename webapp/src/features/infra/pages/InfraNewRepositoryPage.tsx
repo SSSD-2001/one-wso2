@@ -29,7 +29,7 @@ export default function InfraNewRepositoryPage() {
             title="New Repository"
             subtitle="Request a new GitHub repository."
         >
-            {gate.isResolving ? null : gate.isEmployee ? (
+            {gate.isEmployee ? (
                 <NewRepositoryForm />
             ) : (
                 <Alert severity="warning">Only employees can request a new repository.</Alert>

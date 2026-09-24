@@ -106,7 +106,7 @@ export function fieldsFromOrganization(org: InfraOrganization): Pick<
 export function repoTypeRestriction(values: Pick<RepositoryStepValues, "organizationPlan" | "organizationVisibility">): {
     type: RepoType;
     message: string;
-    } | null {
+} | null {
     if (!values.organizationVisibility && !values.organizationPlan) return null;
     if (values.organizationPlan === "Free") {
         return {
@@ -152,15 +152,20 @@ export function sanitizeTopics(raw: string[]): string[] {
         return undefined;
     }
 
+export function websiteWithScheme(value: string): string {
+    const trimmed = value.trim();
+    return HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+    
     function websiteError(value: string): string | undefined {
         const trimmed = value.trim();
         if (!trimmed) return undefined;
         if (UNSAFE_SCHEME.test(trimmed)) return "Website URL must start with http:// or https://";
-        const withScheme = HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
+        const withScheme = websiteWithScheme(trimmed);
         try {
             const url = new URL(withScheme);
             if (url.protocol !== "http:" && url.protocol !== "https:") {
-            return "Website URL must start with http:// or https://";
+                return "Website URL must start with http:// or https://";
             }
         } catch {
             return "Website URL must be a valid URL.";

@@ -16,7 +16,7 @@
 
 import type { AccessStepValues } from "./accessStep";
 import type { GeneralStepValues } from "./generalStep";
-import { sanitizeTopics, type RepositoryStepValues } from "./repositoryStep";
+import { sanitizeTopics, websiteWithScheme, type RepositoryStepValues } from "./repositoryStep";
 
 export interface RepositoryRequestCreate {
     email: string;
@@ -42,14 +42,6 @@ export interface RepositoryRequestCreate {
     azureDevopsProject: string;
 }
 
-const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
-
-function websiteForSubmit(value: string): string | null {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    return HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
-}
-
 export function toRepositoryRequestCreate(
     general: GeneralStepValues,
     repository: RepositoryStepValues,
@@ -66,7 +58,7 @@ export function toRepositoryRequestCreate(
         repoType: repository.repoType,
         description: repository.description.replace(/[\r\n]+/g, " ").replace(/\s{2,}/g, " ").trim(),
         enableIssues: repository.enableIssues,
-        websiteUrl: websiteForSubmit(repository.websiteUrl),
+        websiteUrl: repository.websiteUrl.trim() ? websiteWithScheme(repository.websiteUrl) : null,
         topics: sanitizeTopics(repository.topics).join(","),
         prProtection: repository.prProtection,
         teams: access.teams.map((team) => team.trim()).filter(Boolean).join(","),
