@@ -15,128 +15,128 @@
 // under the License.
 
 import {
-    Autocomplete,
-    Box,
-    FormControlLabel,
-    Radio,
-    RadioGroup,
-    Stack,
-    TextField,
-    Typography,
-  } from "@wso2/oxygen-ui";
+  Autocomplete,
+  Box,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  Typography,
+} from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useInfraTeams } from "../api/useInfraDirectory";
 import { triageReasonRequired, type AccessStepValues } from "./accessStep";
   
-    export default function AccessDetailsStep({
-        organizationName,
-        values,
-        showErrors,
-        onChange,
-    }: {
-        organizationName: string;
-        values: AccessStepValues;
-        showErrors: boolean;
-        onChange: (patch: Partial<AccessStepValues>) => void;
-    }) {
-    const teams = useInfraTeams(organizationName);
-    const teamError = showErrors && values.teams.length === 0 ? "Teams are required." : undefined;
-    const reasonRequired = triageReasonRequired(values);
+  export default function AccessDetailsStep({
+    organizationName,
+    values,
+    showErrors,
+    onChange,
+  }: {
+    organizationName: string;
+    values: AccessStepValues;
+    showErrors: boolean;
+    onChange: (patch: Partial<AccessStepValues>) => void;
+  }) {
+  const teams = useInfraTeams(organizationName);
+  const teamError = showErrors && values.teams.length === 0 ? "Teams are required." : undefined;
+  const reasonRequired = triageReasonRequired(values);
   
-    const setTriage = (field: "enableTriageWso2All" | "enableTriageWso2AllInterns", value: "Yes" | "No") => {
-        const next = { ...values, [field]: value };
-        const needsReason = triageReasonRequired(next);
-        onChange({
-            [field]: value,
-            disableTriageReason: needsReason
-            ? values.disableTriageReason === "N/A"
-                ? ""
-                : values.disableTriageReason
-            : values.disableTriageReason.trim()
-                ? values.disableTriageReason
-                : "N/A",
-        });
-    };
+  const setTriage = (field: "enableTriageWso2All" | "enableTriageWso2AllInterns", value: "Yes" | "No") => {
+    const next = { ...values, [field]: value };
+    const needsReason = triageReasonRequired(next);
+    onChange({
+      [field]: value,
+      disableTriageReason: needsReason
+      ? values.disableTriageReason === "N/A"
+        ? ""
+        : values.disableTriageReason
+      : values.disableTriageReason.trim()
+        ? values.disableTriageReason
+        : "N/A",
+    });
+  };
   
-    return (
-        <Stack spacing={2}>
-            <Autocomplete
-            multiple
-            size="small"
-            options={teams.data ?? []}
-            value={values.teams}
-            loading={teams.isLoading}
-            disabled={!organizationName}
-            onChange={(_event, next) => onChange({ teams: next })}
-            renderInput={(params) => (
-                <TextField
-                {...params}
-                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
-                label="Give write access to"
-                required
-                error={Boolean(teamError) || teams.isError}
-                helperText={
-                    teams.isError
-                    ? describeError(teams.error)
-                    : teamError
-                        ? teamError
-                        : teams.isLoading
-                        ? "Loading teams…"
-                        : "Internal committer teams for this organization"
-                }
-                />
-            )}
-            />
+  return (
+    <Stack spacing={2}>
+      <Autocomplete
+      multiple
+      size="small"
+      options={teams.data ?? []}
+      value={values.teams}
+      loading={teams.isLoading}
+      disabled={!organizationName}
+      onChange={(_event, next) => onChange({ teams: next })}
+      renderInput={(params) => (
+        <TextField
+        {...params}
+        InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+        label="Give write access to"
+        required
+        error={Boolean(teamError) || teams.isError}
+        helperText={
+          teams.isError
+          ? describeError(teams.error)
+          : teamError
+            ? teamError
+            : teams.isLoading
+            ? "Loading teams…"
+            : "Internal committer teams for this organization"
+        }
+        />
+      )}
+      />
   
-        {values.repoType === "Private" && (
-            <>
-                <Box>
-                <Typography variant="body1">Enable triage access to wso2-all group</Typography>
-                <RadioGroup
-                    row
-                    sx={{ ml: 2 }}
-                    value={values.enableTriageWso2All}
-                    onChange={(event) => setTriage("enableTriageWso2All", event.target.value as "Yes" | "No")}
-                >
-                    <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
-                    <FormControlLabel value="No" control={<Radio />} label="No" />
-                </RadioGroup>
-                </Box>
-                <Box>
-                <Typography variant="body1">Enable triage access to wso2-all-interns group</Typography>
-                <RadioGroup
-                    row
-                    sx={{ ml: 2 }}
-                    value={values.enableTriageWso2AllInterns}
-                    onChange={(event) => setTriage("enableTriageWso2AllInterns", event.target.value as "Yes" | "No")}
-                >
-                    <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
-                    <FormControlLabel value="No" control={<Radio />} label="No" />
-                </RadioGroup>
-                </Box>
-                {reasonRequired && (
-                <TextField
-                    label="Reason to select 'No' for any of the above options"
-                    InputLabelProps={{ shrink: true }}
-                    value={values.disableTriageReason}
-                    onChange={(event) => onChange({ disableTriageReason: event.target.value })}
-                    required
-                    fullWidth
-                    multiline
-                    rows={3}
-                    size="small"
-                    error={showErrors && (!values.disableTriageReason.trim() || values.disableTriageReason.trim() === "N/A")}
-                    helperText={
-                    showErrors && !values.disableTriageReason.trim()
-                        ? "Disable Triage Reason is required."
-                        : showErrors && values.disableTriageReason.trim() === "N/A"
-                        ? "Please provide a reason for disabling triage access."
-                        : " "
-                    }
-                />
-                )}
-            </>
+    {values.repoType === "Private" && (
+      <>
+        <Box>
+        <Typography variant="body1">Enable triage access to wso2-all group</Typography>
+        <RadioGroup
+          row
+          sx={{ ml: 2 }}
+          value={values.enableTriageWso2All}
+          onChange={(event) => setTriage("enableTriageWso2All", event.target.value as "Yes" | "No")}
+        >
+          <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
+          <FormControlLabel value="No" control={<Radio />} label="No" />
+        </RadioGroup>
+        </Box>
+        <Box>
+        <Typography variant="body1">Enable triage access to wso2-all-interns group</Typography>
+        <RadioGroup
+          row
+          sx={{ ml: 2 }}
+          value={values.enableTriageWso2AllInterns}
+          onChange={(event) => setTriage("enableTriageWso2AllInterns", event.target.value as "Yes" | "No")}
+        >
+          <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
+          <FormControlLabel value="No" control={<Radio />} label="No" />
+        </RadioGroup>
+        </Box>
+        {reasonRequired && (
+        <TextField
+          label="Reason to select 'No' for any of the above options"
+          InputLabelProps={{ shrink: true }}
+          value={values.disableTriageReason}
+          onChange={(event) => onChange({ disableTriageReason: event.target.value })}
+          required
+          fullWidth
+          multiline
+          rows={3}
+          size="small"
+          error={showErrors && (!values.disableTriageReason.trim() || values.disableTriageReason.trim() === "N/A")}
+          helperText={
+          showErrors && !values.disableTriageReason.trim()
+            ? "Disable Triage Reason is required."
+            : showErrors && values.disableTriageReason.trim() === "N/A"
+            ? "Please provide a reason for disabling triage access."
+            : " "
+          }
+        />
         )}
-        </Stack>
-    );
+      </>
+    )}
+    </Stack>
+  );
 }

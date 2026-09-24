@@ -18,24 +18,24 @@ import { describe, expect, it } from "vitest";
 import { generalStepErrors, type GeneralStepValues } from "./generalStep";
 
 const valid: GeneralStepValues = {
-    email: "senumi@wso2.com",
-    leadEmail: "lead@wso2.com",
-    requirement: "Need a repo for the portal.",
-    ccList: ["ada@wso2.com"],
+  email: "senumi@wso2.com",
+  leadEmail: "lead@wso2.com",
+  requirement: "Need a repo for the portal.",
+  ccList: ["ada@wso2.com"],
 };
 
 describe("generalStepErrors", () => {
-    it("accepts a complete general step", () => {
-        expect(generalStepErrors(valid)).toEqual({});
-    });
+  it("accepts a complete general step", () => {
+    expect(generalStepErrors(valid)).toEqual({});
+  });
 
-    it("requires a lead, a requirement, and at least one valid CC", () => {
-        expect(
-        generalStepErrors({ ...valid, leadEmail: "", requirement: "  ", ccList: ["not-an-email"] }),
-        ).toEqual({
-        leadEmail: "Lead Email is required.",
-        requirement: "Requirement is required.",
-        ccList: "All emails must be valid.",
-        });
+  it("requires a lead, a requirement, and at least one valid CC", () => {
+    expect(
+    generalStepErrors({ ...valid, leadEmail: "", requirement: "  ", ccList: ["not-an-email"] }),
+    ).toEqual({
+    leadEmail: "Lead Email is required.",
+    requirement: "Requirement is required.",
+    ccList: "All emails must be valid.",
     });
+  });
 });

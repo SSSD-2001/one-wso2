@@ -18,14 +18,14 @@ import { useMutation } from "@tanstack/react-query";
 import { authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { infraServiceUrls } from "@config/apiConfig";
-import type { RepositoryRequestCreate } from "../new-repository/submitRequest";
+import type { RepositoryRequestCreate } from "./submitRequest";
 
 export function useCreateRepositoryRequest() {
-    const getAccessToken = useAccessToken();
-    return useMutation({
-        mutationFn: async (body: RepositoryRequestCreate) => {
-            const accessToken = await getAccessToken();
-            return authedPost<unknown>(infraServiceUrls.repositoryRequests, accessToken, body);
-        },
-    });
+  const getAccessToken = useAccessToken();
+  return useMutation({
+    mutationFn: async (body: RepositoryRequestCreate) => {
+      const accessToken = await getAccessToken();
+      return authedPost<unknown>(infraServiceUrls.repositoryRequests, accessToken, body);
+    },
+  });
 }

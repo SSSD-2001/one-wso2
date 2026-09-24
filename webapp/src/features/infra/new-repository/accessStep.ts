@@ -17,39 +17,39 @@
 import type { RepoType } from "./repositoryStep";
 
 export interface AccessStepValues {
-    teams: string[];
-    repoType: RepoType;
-    enableTriageWso2All: "Yes" | "No";
-    enableTriageWso2AllInterns: "Yes" | "No";
-    disableTriageReason: string;
+  teams: string[];
+  repoType: RepoType;
+  enableTriageWso2All: "Yes" | "No";
+  enableTriageWso2AllInterns: "Yes" | "No";
+  disableTriageReason: string;
 }
 
 export const emptyAccessStep: AccessStepValues = {
-    teams: [],
-    repoType: "Public",
-    enableTriageWso2All: "Yes",
-    enableTriageWso2AllInterns: "Yes",
-    disableTriageReason: "N/A",
+  teams: [],
+  repoType: "Public",
+  enableTriageWso2All: "Yes",
+  enableTriageWso2AllInterns: "Yes",
+  disableTriageReason: "N/A",
 };
 
 export type AccessStepErrors = Partial<Record<"teams" | "disableTriageReason", string>>;
 
 export function triageReasonRequired(values: AccessStepValues): boolean {
-    return (
-        values.repoType === "Private" &&
-        (values.enableTriageWso2All === "No" || values.enableTriageWso2AllInterns === "No")
-    );
+  return (
+    values.repoType === "Private" &&
+    (values.enableTriageWso2All === "No" || values.enableTriageWso2AllInterns === "No")
+  );
 }
 
 export function accessStepErrors(values: AccessStepValues): AccessStepErrors {
-    const errors: AccessStepErrors = {};
-    if (values.teams.length === 0) errors.teams = "Teams are required.";
-    if (triageReasonRequired(values)) {
-        const reason = values.disableTriageReason.trim();
-        if (!reason) errors.disableTriageReason = "Disable Triage Reason is required.";
-        else if (reason === "N/A") {
-        errors.disableTriageReason = "Please provide a reason for disabling triage access.";
-        }
+  const errors: AccessStepErrors = {};
+  if (values.teams.length === 0) errors.teams = "Teams are required.";
+  if (triageReasonRequired(values)) {
+    const reason = values.disableTriageReason.trim();
+    if (!reason) errors.disableTriageReason = "Disable Triage Reason is required.";
+    else if (reason === "N/A") {
+    errors.disableTriageReason = "Please provide a reason for disabling triage access.";
     }
-    return errors;
+  }
+  return errors;
 }

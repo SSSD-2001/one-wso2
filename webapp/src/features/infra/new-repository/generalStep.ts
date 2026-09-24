@@ -17,25 +17,25 @@
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface GeneralStepValues {
-    email: string;
-    leadEmail: string;
-    requirement: string;
-    ccList: string[];
+  email: string;
+  leadEmail: string;
+  requirement: string;
+  ccList: string[];
 }
 
 export type GeneralStepErrors = Partial<Record<keyof GeneralStepValues, string>>;
 
 function isEmail(value: string): boolean {
-    return EMAIL.test(value.trim());
+  return EMAIL.test(value.trim());
 }
 
 export function generalStepErrors(values: GeneralStepValues): GeneralStepErrors {
-    const errors: GeneralStepErrors = {};
-    if (!values.email.trim()) errors.email = "Member Email is required.";
-    if (!values.leadEmail.trim()) errors.leadEmail = "Lead Email is required.";
-    else if (!isEmail(values.leadEmail)) errors.leadEmail = "Lead Email must be a valid email.";
-    if (!values.requirement.trim()) errors.requirement = "Requirement is required.";
-    if (values.ccList.length === 0) errors.ccList = "At least one email is required.";
-    else if (values.ccList.some((email) => !isEmail(email))) errors.ccList = "All emails must be valid.";
-    return errors;
+  const errors: GeneralStepErrors = {};
+  if (!values.email.trim()) errors.email = "Member Email is required.";
+  if (!values.leadEmail.trim()) errors.leadEmail = "Lead Email is required.";
+  else if (!isEmail(values.leadEmail)) errors.leadEmail = "Lead Email must be a valid email.";
+  if (!values.requirement.trim()) errors.requirement = "Requirement is required.";
+  if (values.ccList.length === 0) errors.ccList = "At least one email is required.";
+  else if (values.ccList.some((email) => !isEmail(email))) errors.ccList = "All emails must be valid.";
+  return errors;
 }

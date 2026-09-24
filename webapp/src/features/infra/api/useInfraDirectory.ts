@@ -23,82 +23,82 @@ import { infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 import type { InfraEmployee, InfraLead, InfraOrganization, InfraTopic } from "./infraTypes";
 
 export function useInfraLeads(enabled = true) {
-    const { isSignedIn } = useAsgardeo();
-    const getAccessToken = useAccessToken();
-    const configured = isInfraBackendConfigured();
-    return useQuery<InfraLead[]>({
-        queryKey: ["infra-leads"],
-        enabled: enabled && isSignedIn && configured,
-        queryFn: async () => {
-            const accessToken = await getAccessToken();
-            return authedGet<InfraLead[]>(infraServiceUrls.leads, accessToken);
-        },
-        staleTime: 5 * 60 * 1000,
-        retry: httpRetry,
-    });
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const configured = isInfraBackendConfigured();
+  return useQuery<InfraLead[]>({
+    queryKey: ["infra-leads"],
+    enabled: enabled && isSignedIn && configured,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<InfraLead[]>(infraServiceUrls.leads, accessToken);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
 }
 
 export function useInfraEmployees(enabled = true) {
-    const { isSignedIn } = useAsgardeo();
-    const getAccessToken = useAccessToken();
-    const configured = isInfraBackendConfigured();
-    return useQuery<InfraEmployee[]>({
-        queryKey: ["infra-employees"],
-        enabled: enabled && isSignedIn && configured,
-        queryFn: async () => {
-            const accessToken = await getAccessToken();
-            return authedGet<InfraEmployee[]>(infraServiceUrls.employees, accessToken);
-        },
-        staleTime: 5 * 60 * 1000,
-        retry: httpRetry,
-    });
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const configured = isInfraBackendConfigured();
+  return useQuery<InfraEmployee[]>({
+    queryKey: ["infra-employees"],
+    enabled: enabled && isSignedIn && configured,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<InfraEmployee[]>(infraServiceUrls.employees, accessToken);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
 }
 
 export function useInfraOrganizations(enabled = true) {
-    const { isSignedIn } = useAsgardeo();
-    const getAccessToken = useAccessToken();
-    const configured = isInfraBackendConfigured();
-    return useQuery<InfraOrganization[]>({
-        queryKey: ["infra-organizations"],
-        enabled: enabled && isSignedIn && configured,
-        queryFn: async () => {
-            const accessToken = await getAccessToken();
-            return authedGet<InfraOrganization[]>(infraServiceUrls.organizations, accessToken);
-        },
-        staleTime: 5 * 60 * 1000,
-        retry: httpRetry,
-    });
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const configured = isInfraBackendConfigured();
+  return useQuery<InfraOrganization[]>({
+    queryKey: ["infra-organizations"],
+    enabled: enabled && isSignedIn && configured,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<InfraOrganization[]>(infraServiceUrls.organizations, accessToken);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
   }
   
 export function useInfraTopics(enabled = true) {
-    const { isSignedIn } = useAsgardeo();
-    const getAccessToken = useAccessToken();
-    const configured = isInfraBackendConfigured();
-    return useQuery<InfraTopic[]>({
-        queryKey: ["infra-topics"],
-        enabled: enabled && isSignedIn && configured,
-        queryFn: async () => {
-            const accessToken = await getAccessToken();
-            return authedGet<InfraTopic[]>(infraServiceUrls.topics, accessToken);
-        },
-        staleTime: 5 * 60 * 1000,
-        retry: httpRetry,
-    });
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const configured = isInfraBackendConfigured();
+  return useQuery<InfraTopic[]>({
+    queryKey: ["infra-topics"],
+    enabled: enabled && isSignedIn && configured,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<InfraTopic[]>(infraServiceUrls.topics, accessToken);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
 }
 
 export function useInfraTeams(organizationName: string, enabled = true) {
-    const { isSignedIn } = useAsgardeo();
-    const getAccessToken = useAccessToken();
-    const configured = isInfraBackendConfigured();
-    const organization = organizationName.trim();
-    return useQuery<string[]>({
-        queryKey: ["infra-teams", organization],
-        enabled: enabled && isSignedIn && configured && organization.length > 0,
-        queryFn: async () => {
-            const accessToken = await getAccessToken();
-            return authedGet<string[]>(infraServiceUrls.teams(organization), accessToken);
-        },
-        staleTime: 5 * 60 * 1000,
-        retry: httpRetry,
-    });
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const configured = isInfraBackendConfigured();
+  const organization = organizationName.trim();
+  return useQuery<string[]>({
+    queryKey: ["infra-teams", organization],
+    enabled: enabled && isSignedIn && configured && organization.length > 0,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<string[]>(infraServiceUrls.teams(organization), accessToken);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
 }

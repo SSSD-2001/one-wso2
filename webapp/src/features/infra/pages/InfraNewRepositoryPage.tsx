@@ -21,19 +21,19 @@ import { useInfraGate } from "../api/useInfraGate";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
 
 export default function InfraNewRepositoryPage() {
-    const gate = useInfraGate();
+  const gate = useInfraGate();
 
-    return (
-        <InfraShell
-            eyebrow={INFRA_EYEBROW.github}
-            title="New Repository"
-            subtitle="Request a new GitHub repository."
-        >
-            {gate.isEmployee ? (
-                <NewRepositoryForm />
-            ) : (
-                <Alert severity="warning">Only employees can request a new repository.</Alert>
-            )}
-        </InfraShell>
-    );
+  return (
+    <InfraShell
+      eyebrow={INFRA_EYEBROW.github}
+      title="New Repository"
+      subtitle="Request a new GitHub repository."
+    >
+      {gate.isEmployee ? (
+        <NewRepositoryForm />
+      ) : (
+        <Alert severity="warning">Only employees can request a new repository.</Alert>
+      )}
+    </InfraShell>
+  );
 }

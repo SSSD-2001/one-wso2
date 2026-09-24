@@ -18,32 +18,32 @@ import { describe, expect, it } from "vitest";
 import { accessStepErrors, emptyAccessStep } from "./accessStep";
 
 describe("accessStepErrors", () => {
-    it("requires at least one team", () => {
-        expect(accessStepErrors({ ...emptyAccessStep, teams: ["wso2-all"] })).toEqual({});
-        expect(accessStepErrors(emptyAccessStep).teams).toBe("Teams are required.");
-    });
+  it("requires at least one team", () => {
+    expect(accessStepErrors({ ...emptyAccessStep, teams: ["wso2-all"] })).toEqual({});
+    expect(accessStepErrors(emptyAccessStep).teams).toBe("Teams are required.");
+  });
 
-    it("requires a real reason when a private repo declines triage", () => {
-        expect(
-        accessStepErrors({
-            ...emptyAccessStep,
-            teams: ["wso2-all"],
-            repoType: "Private",
-            enableTriageWso2All: "No",
-            disableTriageReason: "N/A",
-        }).disableTriageReason,
-        ).toMatch(/reason/);
-    });
+  it("requires a real reason when a private repo declines triage", () => {
+    expect(
+    accessStepErrors({
+      ...emptyAccessStep,
+      teams: ["wso2-all"],
+      repoType: "Private",
+      enableTriageWso2All: "No",
+      disableTriageReason: "N/A",
+    }).disableTriageReason,
+    ).toMatch(/reason/);
+  });
 
-    it("leaves the reason alone for a public repository", () => {
-        expect(
-        accessStepErrors({
-            ...emptyAccessStep,
-            teams: ["wso2-all"],
-            repoType: "Public",
-            enableTriageWso2All: "No",
-            disableTriageReason: "N/A",
-        }),
-        ).toEqual({});
-    });
+  it("leaves the reason alone for a public repository", () => {
+    expect(
+    accessStepErrors({
+      ...emptyAccessStep,
+      teams: ["wso2-all"],
+      repoType: "Public",
+      enableTriageWso2All: "No",
+      disableTriageReason: "N/A",
+    }),
+    ).toEqual({});
+  });
 });
