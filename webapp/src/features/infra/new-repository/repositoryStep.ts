@@ -22,7 +22,7 @@ export const TOPIC_MAX_LENGTH = 50;
 export const REPO_NAME_MAX = 100;
 
 const REPO_NAME = /^[A-Za-z0-9._-]+$/;
-const TOPIC = /^[a-z0-9-]+$/;
+const TOPIC = /^[a-z0-9][a-z0-9-]*$/;
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const UNSAFE_SCHEME = /^\s*(javascript|data):/i;
 
@@ -193,7 +193,7 @@ export function repositoryStepErrors(
             break;
         }
         if (!TOPIC.test(topic)) {
-            errors.topics = `Topic #${i + 1} ("${topic}") is invalid. Use only lowercase letters, numbers, and hyphens.`;
+            errors.topics = `Topic #${i + 1} ("${topic}") is invalid. Use lowercase letters, numbers, and hyphens, and start with a letter or number.`;
             break;
         }
         }

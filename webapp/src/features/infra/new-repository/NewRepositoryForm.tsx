@@ -160,8 +160,16 @@ export default function NewRepositoryForm() {
                         required
                         fullWidth
                         size="small"
-                        error={generalTried && Boolean(errors.email)}
-                        helperText={generalTried ? errors.email : undefined}
+                        error={userInfo.isError || (generalTried && Boolean(errors.email))}
+                        helperText={
+                            userInfo.isError
+                                ? describeError(userInfo.error)
+                                : userInfo.isLoading
+                                ? "Loading your email…"
+                                : generalTried
+                                    ? errors.email
+                                    : undefined
+                        }
                     />
                     <FormControl
                         fullWidth
