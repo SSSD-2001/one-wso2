@@ -72,9 +72,10 @@ export default function RepositoryStep({
                 disabled={organizations.isLoading}
                 error={showErrors && Boolean(errors.organizationId)}
             >
-                <InputLabel>Organization</InputLabel>
+                <InputLabel shrink>Organization</InputLabel>
                 <Select
-                label="Organization"
+                    notched
+                    label="Organization"
                 value={values.organizationId || ""}
                 onChange={(event) => {
                     const org = orgs.find((item) => item.organizationId === Number(event.target.value));
@@ -103,6 +104,7 @@ export default function RepositoryStep({
             <TextField
                 sx={{ flex: 1 }}
                 label="Repository Name"
+                InputLabelProps={{ shrink: true }}
                 value={values.repoName}
                 onChange={(event) => onChange({ repoName: event.target.value })}
                 required
@@ -159,6 +161,7 @@ export default function RepositoryStep({
     
             <TextField
                 label="Description"
+                InputLabelProps={{ shrink: true }}
                 value={values.description}
                 onChange={(event) => onChange({ description: event.target.value.replace(/\r?\n/g, " ") })}
                 required
@@ -194,6 +197,7 @@ export default function RepositoryStep({
                 <TextField
                     {...params}
                     label="Topics"
+                    InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                     required
                     error={showErrors && Boolean(errors.topics)}
                     helperText={
@@ -215,6 +219,7 @@ export default function RepositoryStep({
     
             <TextField
                 label="Website URL"
+                InputLabelProps={{ shrink: true }}
                 value={values.websiteUrl}
                 onChange={(event) => onChange({ websiteUrl: event.target.value })}
                 fullWidth

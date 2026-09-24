@@ -71,6 +71,7 @@ import { triageReasonRequired, type AccessStepValues } from "./accessStep";
             renderInput={(params) => (
                 <TextField
                 {...params}
+                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                 label="Give write access to"
                 required
                 error={Boolean(teamError) || teams.isError}
@@ -116,6 +117,7 @@ import { triageReasonRequired, type AccessStepValues } from "./accessStep";
                 {reasonRequired && (
                 <TextField
                     label="Reason to select 'No' for any of the above options"
+                    InputLabelProps={{ shrink: true }}
                     value={values.disableTriageReason}
                     onChange={(event) => onChange({ disableTriageReason: event.target.value })}
                     required

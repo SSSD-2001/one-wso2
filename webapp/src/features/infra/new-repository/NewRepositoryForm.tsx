@@ -178,8 +178,9 @@ export default function NewRepositoryForm() {
                         disabled={leads.isLoading}
                         error={generalTried && Boolean(errors.leadEmail)}
                     >
-                        <InputLabel>Lead Email</InputLabel>
+                        <InputLabel shrink>Lead Email</InputLabel>
                         <Select
+                            notched
                             label="Lead Email"
                             value={leadEmail}
                             onChange={(event) => setLeadEmail(event.target.value)}
@@ -213,6 +214,7 @@ export default function NewRepositoryForm() {
                         size="small"
                         error={generalTried && Boolean(errors.requirement)}
                         helperText={generalTried ? errors.requirement : "Purpose of requesting this repo"}
+                        InputLabelProps={{ shrink: true }}
                     />
                     <Autocomplete
                         multiple
@@ -244,6 +246,7 @@ export default function NewRepositoryForm() {
                                           ? errors.ccList
                                           : "At least one person to inform about this request"
                                 }
+                                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                             />
                         )}
                     />
