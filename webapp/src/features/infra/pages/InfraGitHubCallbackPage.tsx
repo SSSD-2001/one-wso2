@@ -7,7 +7,12 @@ export default function InfraGitHubCallbackPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const outcome = acceptOAuthCallback(params.get("code"), params.get("state"));
+    const outcome = acceptOAuthCallback(
+        params.get("code"),
+        params.get("state"),
+        Date.now(),
+        params.get("error"),
+    );
     navigate(outcome.returnPath, { replace: true });
   }, [navigate]);
 
