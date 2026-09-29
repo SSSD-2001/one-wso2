@@ -1195,7 +1195,27 @@ export const infraServiceUrls = {
     `${infraBackendUrl}/teams?organization=${encodeURIComponent(organization)}`,
   // GET /repository-requests — repository requests for the caller.
   repositoryRequests: `${infraBackendUrl}/repository-requests`,
+  // POST /github/verify-and-persist-user — verify a GitHub user and persist their information.
+  githubVerifyAndPersistUser: `${infraBackendUrl}/github/verify-and-persist-user`,
+  // POST /set-default-repository-access — set the default repository access for the caller.
+  setDefaultRepositoryAccess: `${infraBackendUrl}/set-default-repository-access`,
+  // GET /default-repository-access — get the default repository access for the caller.
+  defaultRepositoryAccess: `${infraBackendUrl}/default-repository-access`,
 };
+
+const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
+
+export const githubOAuthConfig = {
+  clientId: window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
+  authorizeUrl:
+    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL || DEFAULT_GITHUB_AUTHORIZE_URL,
+  redirectUrl: window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
+  scopes: ["read:user", "user:email"] as const,
+};
+
+export function isGitHubOAuthConfigured(): boolean {
+  return Boolean(githubOAuthConfig.clientId && githubOAuthConfig.redirectUrl);
+}
 
 export const promotionServiceUrls = {
   // GET /employee-info?employeeWorkEmail=<email> — returns the caller's

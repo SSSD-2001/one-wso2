@@ -154,6 +154,13 @@ window.config = {
   // https://pi.pardot.com, which is correct for every WSO2 environment today.
   // ONE_WSO2_PARDOT_BASE_URL: "https://pi.pardot.com",
 
+  // GitHub OAuth for Infra Portal connect. Authorize URL defaults to GitHub.
+  // Redirect URL must be this app's origin + /infra/github/callback, and that
+  // exact URL must be registered on the GitHub OAuth app.
+  // ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: "<github-oauth-client-id>",
+  // ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: "https://github.com/login/oauth/authorize",
+  // ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: "https://<one-wso2-origin>/infra/github/callback",
+
   // Salesforce Lightning base URL — for deep-linking to the record an incoming
   // one collided with, from CRM Upload's review queue. A link target, not an
   // API. Optional; defaults to https://wso2.lightning.force.com. Set it only
