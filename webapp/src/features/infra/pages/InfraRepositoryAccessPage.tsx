@@ -120,7 +120,7 @@ function DefaultRepositoryAccess() {
 
     useEffect(() => {
         if (!isConnected || !access.data || granting || grantError) return;
-        if (status !== "not_granted" && status !== "granting") return;
+        if (status !== "not_granted") return;
         if (grantAttempted.current) return;
         grantAttempted.current = true;
         void grant();
@@ -175,7 +175,18 @@ function DefaultRepositoryAccess() {
         );
     }
 
-    if (!access.data || granting || status === "granting" || access.isFetching) {
+    if (access.isError) {
+        return (
+        <Stack spacing={1}>
+            <Alert severity="error">{describeError(access.error)}</Alert>
+            <Button size="small" sx={primaryBtnSx} onClick={() => void access.refetch()}>
+            Retry
+            </Button>
+        </Stack>
+        );
+    }
+    
+    if (access.isPending || granting || status === "granting") {
         return (
         <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
             <CircularProgress size={16} />
@@ -184,17 +195,6 @@ function DefaultRepositoryAccess() {
                 ? "Granting default repository access…"
                 : "Checking default repository access…"}
             </Typography>
-        </Stack>
-        );
-    }
-
-    if (access.isError) {
-        return (
-        <Stack spacing={1}>
-            <Alert severity="error">{describeError(access.error)}</Alert>
-            <Button size="small" sx={primaryBtnSx} onClick={() => void access.refetch()}>
-            Retry
-            </Button>
         </Stack>
         );
     }

@@ -32,6 +32,7 @@ import { useInfraUserInfo } from "../api/useInfraUserInfo";
 import type { GitHubVerifyResponse } from "../api/infraTypes";
 import { primaryBtnSx } from "../components/infraUi";
 import {
+    consumePendingOAuthCode,
     consumeStoredGitHubConnectResult,
     resolveGitHubConnection,
     startGitHubOAuth,
@@ -67,59 +68,50 @@ export default function InfraHomePage() {
         if (stored?.status === "error") {
             setConnectError(stored.errorMessage ?? "GitHub connection failed.");
         }
-      
-        const code = sessionStorage.getItem("gh_pending_oauth_code");
+    
+        const code = consumePendingOAuthCode();
         if (!code) return;
-      
-        let cancelled = false;
+    
         setConnecting(true);
         void (async () => {
             try {
                 const accessToken = await getAccessToken();
-                if (cancelled) return;
-                sessionStorage.removeItem("gh_pending_oauth_code");
-        
                 const result = await authedPost<GitHubVerifyResponse>(
-                infraServiceUrls.githubVerifyAndPersistUser,
-                accessToken,
-                { code },
+                    infraServiceUrls.githubVerifyAndPersistUser,
+                    accessToken,
+                    { code },
                 );
-                if (cancelled) return;
                 if (result?.status !== "verified") {
-                setConnectError(
-                    "GitHub account was not verified. Confirm your company email on GitHub.",
-                );
-                return;
+                    setConnectError(
+                        "GitHub account was not verified. Confirm your company email on GitHub.",
+                    );
+                    return;
                 }
                 setVerified({
-                status: "verified",
-                githubUserId: result.githubUserId ?? undefined,
-                githubUsername: result.githubUsername ?? undefined,
+                    status: "verified",
+                    githubUserId: result.githubUserId ?? undefined,
+                    githubUsername: result.githubUsername ?? undefined,
                 });
                 await queryClient.invalidateQueries({ queryKey: ["infra-user-info"] });
                 try {
-                await authedPut(
-                    infraServiceUrls.setDefaultRepositoryAccess,
-                    await getAccessToken(),
-                    {},
-                );
-                await queryClient.invalidateQueries({
-                    queryKey: ["infra-default-repository-access"],
-                });
+                    await authedPut(
+                        infraServiceUrls.setDefaultRepositoryAccess,
+                        await getAccessToken(),
+                        {},
+                    );
+                    await queryClient.invalidateQueries({
+                        queryKey: ["infra-default-repository-access"],
+                    });
                 } catch (error) {
-                if (!cancelled) setConnectError(describeError(error));
+                    setConnectError(describeError(error));
                 }
             } catch (error) {
-                if (!cancelled) setConnectError(describeError(error));
+                setConnectError(describeError(error));
             } finally {
-                if (!cancelled) setConnecting(false);
+                setConnecting(false);
             }
-            })();
-        
-            return () => {
-            cancelled = true;
-            };
-        }, [getAccessToken, queryClient]);
+        })();
+    }, [getAccessToken, queryClient]);
 
     return (
         <InfraShell

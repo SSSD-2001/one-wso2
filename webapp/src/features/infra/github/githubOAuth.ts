@@ -53,18 +53,25 @@ export function acceptOAuthCallback(
     code: string | null,
     urlState: string | null,
     now = Date.now(),
+    oauthError: string | null = null,
 ): { ok: true; returnPath: string } | { ok: false; returnPath: string; result: GitHubConnectResult } {
     const stored = readStoredOAuthState();
-    const returnPath = stored?.returnPath || DEFAULT_GITHUB_RETURN_PATH;
+    const returnPath = DEFAULT_GITHUB_RETURN_PATH;
     const fail = (errorMessage: string) => {
         clearOAuthAttempt();
         const result: GitHubConnectResult = { status: "error", errorMessage };
         sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
         return { ok: false as const, returnPath, result };
     };
+    if (oauthError) {
+        if (!stored || !urlState || urlState !== stored.state) {
+            return fail("Security validation failed: authentication state mismatch. Please try again.");
+        }
+        return fail("GitHub connection was cancelled.");
+    }
     if (!code || !urlState || !stored) {
         if (sessionStorage.getItem(CODE_KEY)) {
-          return { ok: true, returnPath: DEFAULT_GITHUB_RETURN_PATH };
+            return { ok: true, returnPath };
         }
         return fail("Security validation failed: authentication state missing. Please try again.");
     }
