@@ -98,7 +98,10 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
-      // Base URLs for the digiops-finance backends surfaced in the
+      ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
+      ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
+      // Base URLs for the three digiops-finance backends surfaced in the
       // Finance perspective. Each is its own service with its own
       // /user-info + role scheme. Optional — when a URL is absent, that
       // app's screens show a "not connected" state instead of firing

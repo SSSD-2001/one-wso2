@@ -31,11 +31,12 @@ export const INFRA_APPS: readonly MenuApp[] = [
             desc: "Request a new GitHub repository.",
             path: "/infra/github/repository-requests",
             requires: ["admin"],
-          },
+        },
         {
             id: "infra-github-repository-access",
             label: "Repository Access",
             desc: "Default org/team access and extra repos from approved requests.",
+            path: "/infra/github/repository-access-requests",
             requires: ["admin"],
         },
         {
