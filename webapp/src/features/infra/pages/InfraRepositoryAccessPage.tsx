@@ -70,7 +70,8 @@ function DefaultRepositoryAccess() {
     const getAccessToken = useAccessToken();
     const queryClient = useQueryClient();
     const grantAttempted = useRef(false);
-    const pollAttempts = useRef(0);
+    const [pollCount, setPollCount] = useState(0);
+    const lastCountedUpdate = useRef(0);
     const [grantError, setGrantError] = useState<string | null>(null);
     const [granting, setGranting] = useState(false);
 
@@ -91,23 +92,23 @@ function DefaultRepositoryAccess() {
         );
         },
         refetchInterval: (query) => {
-        if (query.state.data?.status !== "granting") return false;
-        if (pollAttempts.current >= MAX_POLLS) return false;
-        pollAttempts.current += 1;
-        return POLL_MS;
+            if (query.state.data?.status !== "granting") return false;
+            if (pollCount >= MAX_POLLS) return false;
+            return POLL_MS;
         },
     });
 
     const status = access.data?.status;
     const organizations = access.data?.organizations ?? [];
-    const pollTimedOut = status === "granting" && pollAttempts.current >= MAX_POLLS;
+    const pollTimedOut = status === "granting" && pollCount >= MAX_POLLS;
 
     async function grant() {
         setGrantError(null);
         setGranting(true);
         try {
         await authedPut(infraServiceUrls.setDefaultRepositoryAccess, await getAccessToken(), {});
-        pollAttempts.current = 0;
+        lastCountedUpdate.current = 0;
+        setPollCount(0);
         await queryClient.invalidateQueries({
             queryKey: ["infra-default-repository-access"],
         });
@@ -119,13 +120,18 @@ function DefaultRepositoryAccess() {
     }
 
     useEffect(() => {
+        if (access.data?.status !== "granting") return;
+        if (!access.dataUpdatedAt || access.dataUpdatedAt === lastCountedUpdate.current) return;
+        lastCountedUpdate.current = access.dataUpdatedAt;
+        setPollCount((count) => count + 1);
+    }, [access.dataUpdatedAt, access.data?.status]);
+
+    useEffect(() => {
         if (!isConnected || !access.data || granting || grantError) return;
         if (status !== "not_granted") return;
         if (grantAttempted.current) return;
         grantAttempted.current = true;
         void grant();
-        // grant reads the latest token and query client; status is the trigger.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, status, access.data, granting, grantError]);
 
     if (!isConnected) {
@@ -146,7 +152,8 @@ function DefaultRepositoryAccess() {
             size="small"
             sx={primaryBtnSx}
             onClick={() => {
-                pollAttempts.current = 0;
+                lastCountedUpdate.current = 0;
+                setPollCount(0);
                 void access.refetch();
             }}
             >
