@@ -19,8 +19,7 @@
 // source's own tab bar exactly: Pending Requests (panels/recommendationList.tsx)
 // and History (panels/recommendationHistory.tsx). Lives under People Ops —
 // reviewing/deciding on other people's promotions is People-Ops-team work,
-// the same split PAR's own Lead Portal already applies (docs/ported-apps/
-// par-app.md, docs/ported-apps/promotion-app.md).
+// the same split PAR's own Lead Portal already applies.
 import { Navigate, Outlet } from "react-router";
 import { ClipboardCheckIcon, ClipboardListIcon, UsersRoundIcon } from "@wso2/oxygen-ui-icons-react";
 import PromotionPageShell from "../components/PromotionPageShell";

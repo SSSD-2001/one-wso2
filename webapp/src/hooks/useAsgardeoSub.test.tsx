@@ -32,7 +32,8 @@ vi.mock("@asgardeo/react", () => ({
   useAsgardeo: () => ({ isSignedIn: true, getDecodedIdToken }),
 }));
 
-import { useAsgardeoSub } from "./useAsgardeoSub";
+import { foldIdentityError, useAsgardeoSub } from "./useAsgardeoSub";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 function jwt(payload: Record<string, unknown>): string {
   const seg = (o: unknown) => {
@@ -161,5 +162,79 @@ describe("useAsgardeoSub — deciding whether a decode failure means the session
 
     await waitFor(() => expect(refreshIdToken).toHaveBeenCalled());
     expect(result.current.state.status).toBe("loading");
+  });
+});
+
+// A disabled query with no data reports `isLoading: false` in React Query
+// v5 (`isLoading` is `isPending && isFetching`, and a disabled query is
+// never `isFetching`) — so every sub-keyed hook (CC/OPD/Expense user-info,
+// ...) that stays disabled while identity resolves would otherwise read as
+// "settled" during that gap, before the query it's actually waiting on ever
+// gets to run. `useFinanceGate`'s `isResolving` (and every page that keys
+// off these hooks' `isLoading`) reads that false "settled" as "no access",
+// which is what made the Finance section flash its no-access/skeleton state
+// on load before the real answer arrived a moment later.
+function pendingDisabledQuery(): UseQueryResult<unknown, Error> {
+  return {
+    status: "pending",
+    fetchStatus: "idle",
+    isPending: true,
+    isLoading: false,
+    isFetching: false,
+    isSuccess: false,
+    isError: false,
+    data: undefined,
+    error: null,
+    refetch: vi.fn(),
+  } as unknown as UseQueryResult<unknown, Error>;
+}
+
+function settledQuery(data: unknown): UseQueryResult<unknown, Error> {
+  return {
+    status: "success",
+    fetchStatus: "idle",
+    isPending: false,
+    isLoading: false,
+    isFetching: false,
+    isSuccess: true,
+    isError: false,
+    data,
+    error: null,
+    refetch: vi.fn(),
+  } as unknown as UseQueryResult<unknown, Error>;
+}
+
+describe("foldIdentityError — closing the gap a disabled query leaves open", () => {
+  it("reports loading while identity resolves and the query has no data yet", () => {
+    const folded = foldIdentityError(pendingDisabledQuery(), { status: "loading" }, vi.fn());
+    expect(folded.isLoading).toBe(true);
+    expect(folded.isPending).toBe(true);
+    expect(folded.isError).toBe(false);
+  });
+
+  it("does not hide data the query already has just because identity is re-checking", () => {
+    const folded = foldIdentityError(settledQuery({ ok: true }), { status: "loading" }, vi.fn());
+    expect(folded.isLoading).toBe(false);
+    expect(folded.data).toEqual({ ok: true });
+  });
+
+  it("does not touch a query that has already resolved once identity is ready", () => {
+    const query = settledQuery({ ok: true });
+    const folded = foldIdentityError(query, { status: "ready", sub: "user-1" }, vi.fn());
+    expect(folded).toBe(query);
+  });
+
+  it("still turns a genuine identity failure into a real, retryable error", () => {
+    const retryIdentity = vi.fn();
+    const folded = foldIdentityError(
+      pendingDisabledQuery(),
+      { status: "error", message: "Couldn't verify your session." },
+      retryIdentity,
+    );
+    expect(folded.isError).toBe(true);
+    expect(folded.isLoading).toBe(false);
+    expect(folded.error?.message).toBe("Couldn't verify your session.");
+    void folded.refetch();
+    expect(retryIdentity).toHaveBeenCalled();
   });
 });

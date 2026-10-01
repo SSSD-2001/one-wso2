@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { describeError } from "@api/errors";
 import { hasAnyGroup, useAsgardeoGroups } from "@hooks/useAsgardeoGroups";
 import { useSubscriptionsMetaInfo } from "./useSubscriptionData";
@@ -106,10 +107,15 @@ export function useSubscriptionGate(enabled = true): SubscriptionGate {
     // merely "not fetching" then, which reads as a finished check with no
     // privileges and flashes a denial at every admin on a cold load.
     isResolving: enabled && (meta.isPending || !identity.ready),
-    isError: meta.isError || Boolean(identity.error),
-    errorMessage: meta.isError
-      ? describeError(meta.error)
-      : (identity.error ?? undefined),
+    // A disabled gate must not report a token-decode or meta failure. The
+    // subscriptions adapter stays on every perspective, and an unguarded
+    // identity error would stop Me from opening.
+    isError: enabled && (meta.isError || Boolean(identity.error)),
+    errorMessage: enabled
+      ? meta.isError
+        ? describeError(meta.error)
+        : (identity.error ?? undefined)
+      : undefined,
     // Both halves, unconditionally — a caller here (SubscriptionsShell's
     // ErrorNotice) has no way to tell which one actually failed, and retrying
     // the healthy half is a harmless no-op. Retrying only meta.refetch() left
@@ -119,4 +125,12 @@ export function useSubscriptionGate(enabled = true): SubscriptionGate {
       identity.retry();
     },
   };
+}
+
+export function subscriptionVisibility(gate: SubscriptionGate): VisibilityAnswer {
+  const canSee = (id: string) =>
+    id === "people-subscriptions-manage" ? gate.isAdmin && !gate.isResolving : true;
+  return gate.isError
+    ? { canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee, resolving: gate.isResolving, retry: () => undefined };
 }

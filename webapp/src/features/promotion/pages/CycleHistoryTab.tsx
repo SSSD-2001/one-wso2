@@ -25,7 +25,7 @@
 // separate endpoints.
 import { useState } from "react";
 import { Box, Chip, DataGrid, Grid, IconButton, MenuItem, Select, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { InboxIcon, RefreshCwIcon, TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, InboxIcon, RefreshCwIcon, TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
 import { useUserInfo } from "@api/useUserInfo";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
@@ -34,6 +34,7 @@ import { usePromotionPrivileges } from "../api/usePromotionRoles";
 import { usePromotionRequests } from "../api/usePromotionRequests";
 import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "../components/PromotionEmptyState";
+import PromotionRequestDetailDialog from "../components/PromotionRequestDetailDialog";
 import { PromotionGridToolbar } from "../components/PromotionGridToolbar";
 import { promotionRequestColor } from "../util/promotionStatus";
 import { GRID_NO_POINTER_FOCUS_SX } from "@utils/dataGridSx";
@@ -49,6 +50,7 @@ export default function CycleHistoryTab() {
 
   const cycles = useInactivePromotionCycles();
   const [selectedCycleId, setSelectedCycleId] = useState<number | "">("");
+  const [viewingRequest, setViewingRequest] = useState<PromotionRequestFull | null>(null);
   const selectedCycle = cycles.data?.promotionCycles.find((c) => c.id === selectedCycleId);
 
   // Source's own role branch is an `if (HR_ADMIN) ... else if (FUNCTIONAL_LEAD)`
@@ -74,15 +76,38 @@ export default function CycleHistoryTab() {
         <Chip label={params.value} size="small" sx={{ bgcolor: promotionRequestColor(params.value), color: "white" }} />
       ),
     },
+    {
+      field: "action",
+      headerName: "Action",
+      sortable: false,
+      filterable: false,
+      disableExport: true,
+      width: 90,
+      renderCell: (params) => (
+        <Tooltip title="View details">
+          <IconButton size="small" onClick={() => setViewingRequest(params.row)}>
+            <ChevronDownIcon size={16} />
+          </IconButton>
+        </Tooltip>
+      ),
+    },
   ];
 
   const rows = requests.data?.promotionRequests ?? [];
 
   return (
     <>
+      <PromotionRequestDetailDialog request={viewingRequest} onClose={() => setViewingRequest(null)} />
+
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 1.5 }}>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => void cycles.refetch()}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              void cycles.refetch();
+              if (selectedCycleId !== "") void requests.refetch();
+            }}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>

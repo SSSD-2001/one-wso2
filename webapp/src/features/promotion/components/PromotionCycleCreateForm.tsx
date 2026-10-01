@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
-import { useCreatePromotionCycle } from "../api/useAdminPromotionCycle";
+import type { PromotionCycleCreatePayload } from "../api/useAdminPromotionCycle";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
 
@@ -58,7 +58,13 @@ function withinRange(date: Date, min: Date, max: Date): boolean {
 // nested inside the cycle's own date range. `name` is built client-side as
 // `{year}-{half}` (e.g. "2026-H1"), matching source exactly rather than
 // taking a free-text cycle name.
-export default function PromotionCycleCreateForm() {
+export default function PromotionCycleCreateForm({
+  creating,
+  onCreate,
+}: {
+  creating: boolean;
+  onCreate: (payload: PromotionCycleCreatePayload) => void;
+}) {
   const today = new Date();
   const [year, setYear] = useState("");
   const [half, setHalf] = useState("");
@@ -68,8 +74,6 @@ export default function PromotionCycleCreateForm() {
   const [functionalLeadDeadline, setFunctionalLeadDeadline] = useState<Date | null>(addDays(today, 2));
   const [promotionBoardDeadline, setPromotionBoardDeadline] = useState<Date | null>(addDays(today, 3));
   const [confirm, setConfirm] = useState<ConfirmationContent | null>(null);
-
-  const create = useCreatePromotionCycle();
 
   const canSubmit =
     Boolean(year) &&
@@ -83,7 +87,7 @@ export default function PromotionCycleCreateForm() {
     withinRange(leadDeadline!, startDate!, endDate!) &&
     withinRange(functionalLeadDeadline!, startDate!, endDate!) &&
     withinRange(promotionBoardDeadline!, functionalLeadDeadline!, endDate!) &&
-    !create.isPending;
+    !creating;
 
   const handleSubmit = () => {
     setConfirm({
@@ -91,7 +95,7 @@ export default function PromotionCycleCreateForm() {
       text: "Please note that creating a promotion cycle, allowing eligible employees to apply for a promotion.",
       confirmLabel: "create",
       confirmAction: () => {
-        create.mutate({
+        onCreate({
           name: `${year}-${half}`,
           startDate: toDateOnly(startDate),
           endDate: toDateOnly(endDate),

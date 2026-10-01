@@ -30,7 +30,6 @@ import UserProfileMenu from "./UserProfileMenu";
 
 vi.mock("@config/authConfig", () => ({
   authConfig: { myAccountUrl: "https://myaccount.example.test" },
-  devBypassAuth: false,
 }));
 vi.mock("@hooks/useAsgardeoSub", () => ({
   useAsgardeoSub: () => ({ state: { status: "ready", sub: "user-under-test" }, retry: () => {} }),

@@ -2,6 +2,9 @@
 // This file is loaded at runtime by index.html BEFORE the React bundle, so
 // every environment can serve the same static bundle with different config.
 // Never commit the filled-in config.js (see .gitignore).
+//
+// Every backend URL below is optional. When one is absent, that feature shows
+// a "not connected" notice naming the key and makes no requests.
 window.config = {
   // Asgardeo OAuth
   ONE_WSO2_AUTH_BASE_URL: "https://api.asgardeo.io/t/<your-org>",
@@ -16,142 +19,134 @@ window.config = {
   // UI
   ONE_WSO2_THEME: "wso2",
 
+  // People backend base URL. Powers the Me profile, My Team, Org Chart and the
+  // People Ops reports.
+  ONE_WSO2_PEOPLE_BACKEND_URL: "<your-people-backend-url>",
+
   // Cafeteria menu backend (daily menu, lunch feedback, dinner orders).
-  // Optional — when absent the Menu screen shows a not-connected state and
-  // makes no requests. See docs/ported-apps/menu-app.md for the contract.
-  // ONE_WSO2_MENU_BACKEND_URL: "https://<gateway>/menu-app/v1",
+  // ONE_WSO2_MENU_BACKEND_URL: "<your-menu-backend-url>",
 
-  // digiops-hr subscription-app backend base URL (PickMe Commute + LaaS
-  // opt-in/opt-out). Optional — when absent the People Ops → Subscriptions
-  // screens show a not-connected state and make no requests. See
-  // docs/ported-apps/subscription-app.md for the contract, including the
-  // two Asgardeo admin groups this backend's own /subscriptions/meta-info
-  // publishes (there is no separate config key for them).
-  // ONE_WSO2_SUBSCRIPTION_BACKEND_URL: "<your-subscription-app-backend-url>",
+  // Subscriptions backend (PickMe Commute + LaaS opt-in/opt-out). The two
+  // admin group names come from this backend's own /subscriptions/meta-info,
+  // so there is no separate config key for them.
+  // ONE_WSO2_SUBSCRIPTION_BACKEND_URL: "<your-subscription-backend-url>",
 
-  // digiops-infra email-group-manager backend base URL. Optional — when
-  // absent the Email Groups screen shows a not-connected state and makes no
-  // requests. See docs/ported-apps/email-group-manager.md for the contract.
-  // ONE_WSO2_EMAIL_GROUPS_BACKEND_URL: "<your-email-group-manager-backend-url>",
-  // Sales (auto-recorded meetings) backend — people-ops-suite's meet-app
-  // service, reused unchanged. Powers the Sales app's meeting history.
-  // Optional, and note what "optional" means here: leaving it unset does NOT hide
-  // Sales. The perspective is registered regardless, so the launcher tile and rail
-  // stay, and /sales renders its own "not connected" notice — that is how an
-  // operator finds out the key is missing, rather than the app looking like the
-  // feature was never built. Visibility is controlled by the preview flag below,
-  // not by this URL.
-  // drive-service base URL is NOT needed here: the streaming URL is minted by
-  // meet-app-backend and arrives already pointing at drive-service. Nothing in this app
-  // constructs it.
-  // ONE_WSO2_REVOPS_BACKEND_URL: "https://apis-stg.wso2.com/<component>/meet-app-backend/v1.0",
+  // Email groups backend (Google Groups subscriptions).
+  // ONE_WSO2_EMAIL_GROUPS_BACKEND_URL: "<your-email-groups-backend-url>",
 
-  // people-ops-suite people-app backend base URL. Same value as people-app's
-  // REACT_APP_BACKEND_BASE_URL — usually a Choreo API gateway URL. Powers
-  // the live My profile page (employee + personal info fetch).
-  ONE_WSO2_PEOPLE_BACKEND_URL: "<your-people-app-backend-url>",
+  // Sales meetings backend — powers the Sales perspective's meeting history.
+  // Leaving it unset does NOT hide Sales: the perspective is registered
+  // regardless, and /sales renders its own "not connected" notice, which is
+  // how an operator finds out the key is missing. Recording playback URLs
+  // arrive from this backend fully formed; nothing here constructs them.
+  // ONE_WSO2_REVOPS_BACKEND_URL: "<your-sales-meetings-backend-url>",
 
-  // digiops-hr promotion-app backend base URL. Optional — when absent, the
-  // Performance & growth card's "Last promoted date" row shows a
-  // "not configured" state. Same Choreo API gateway URL pattern as
-  // people-app.
-  // ONE_WSO2_PROMOTION_BACKEND_URL: "<your-promotion-app-backend-url>",
+  // Promotion backend. Requests carry the x-user-timezone-offset header.
+  // Also powers the Me page's "Last promotion" row.
+  // ONE_WSO2_PROMOTION_BACKEND_URL: "<your-promotion-backend-url>",
 
-  // digiops-hr par-app backend base URL. Optional — when absent, the
-  // Performance & growth card's active-review row shows a
-  // "not configured" state. Same Choreo API gateway URL pattern.
-  // ONE_WSO2_PAR_BACKEND_URL: "<your-par-app-backend-url>",
+  // PAR backend. Requests carry the x-user-timezone-offset header. Also
+  // powers the Me page's active-review row.
+  // ONE_WSO2_PAR_BACKEND_URL: "<your-par-backend-url>",
+  // OAuth client ID for the Lead Portal's "Attach from Google Drive" evidence
+  // picker (scope: drive.readonly). When absent, the picker's token request
+  // fails.
+  // ONE_WSO2_PAR_GOOGLE_OAUTH_CLIENT_ID: "<your-google-oauth-client-id>",
+  // Browser API key for the same picker. Usually not needed; set it only if
+  // Google reports an invalid developer key. Restrict it by HTTP referrer.
+  // ONE_WSO2_PAR_GOOGLE_PICKER_API_KEY: "<your-google-picker-api-key>",
+  // The PAR rating names that trigger the Top 5%/20% checkbox and the evidence
+  // requirement. Configurable because admins can rename the rating list.
+  // ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING: "Successful",
+  // ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING: "Needs Improvement",
 
-  // digiops-hr banking-app backend base URL. Optional — when absent, the
-  // Bank accounts card shows a "not configured" state. Same Choreo API
-  // gateway URL pattern; unlike par/promotion apps, this one does NOT
-  // require the x-user-timezone-offset header.
-  // ONE_WSO2_BANKING_BACKEND_URL: "<your-banking-app-backend-url>",
+  // Banking backend (the Me → Banking page and the Bank accounts card). Unlike
+  // the PAR and Promotion backends, it does NOT take the
+  // x-user-timezone-offset header.
+  // ONE_WSO2_BANKING_BACKEND_URL: "<your-banking-backend-url>",
 
-  // people-ops-suite leave-app backend base URL. Optional — when absent,
-  // the People Ops → Leave screens (Apply / Approve / My History /
-  // Reports) show a "not configured" state. Same Choreo API gateway URL
-  // pattern; leave-app has its own /user-info + privileges.
-  // ONE_WSO2_LEAVE_BACKEND_URL: "<your-leave-app-backend-url>",
+  // Leave backend (Me → Leave: apply, history, approvals, reports). It has its
+  // own /user-info and privileges.
+  // ONE_WSO2_LEAVE_BACKEND_URL: "<your-leave-backend-url>",
 
-  // grc-tools grc-platform backend base URL — the Security perspective
-  // (Risk Hub, Audit Hub and Admin Console), lifted from grc-tools. Optional —
-  // when absent the Security screens cannot load, and the perspective says so
-  // rather than calling anything.
-  //
-  // That backend must list this app's Asgardeo client id in its AUTH_AUDIENCE,
-  // or every request from here 401s. Already done for stage. See
-  // src/config/apiConfig.ts.
+  // Leave web app base URL (not its backend) — a deep-link target for flows
+  // this app doesn't offer. When absent, that link is hidden.
+  // ONE_WSO2_LEAVE_WEB_APP_URL: "<your-leave-web-app-url>",
+
+  // GRC platform backend — Risk Hub, Audit Hub and Admin Console in the
+  // Security and Compliance perspective. That backend must list this app's
+  // Asgardeo client id in its AUTH_AUDIENCE, or every request from here 401s.
+  // See src/config/apiConfig.ts.
   // ONE_WSO2_GRC_PLATFORM_BACKEND_URL: "<your-grc-platform-backend-url>",
 
-  // grc-tools evidence-app backend base URL — the Evidence Portal, the
-  // third app under Security and Compliance, lifted alongside GRC Platform
-  // above. Optional — when absent the Evidence Portal shows a not connected
-  // notice and makes no requests. Same audience requirement as GRC Platform.
-  // ONE_WSO2_EVIDENCE_PORTAL_BACKEND_URL: "<your-evidence-app-backend-url>",
+  // Evidence Portal backend — the third app in Security and Compliance, a
+  // separate service from the GRC platform, with the same audience
+  // requirement.
+  // ONE_WSO2_EVIDENCE_PORTAL_BACKEND_URL: "<your-evidence-portal-backend-url>",
 
-  // digiops-finance backend base URLs — the three apps in the Finance
-  // perspective. Each is a separate Ballerina service with its own
-  // /user-info + role scheme. Optional — when a URL is absent, that app's
-  // screens show a "not connected" state. Same Choreo API gateway URL
-  // pattern as the other backends.
+  // Finance backends — OPD claims, credit card expenses, expense claims and
+  // master data. Each has its own /user-info and role scheme.
   // ONE_WSO2_OPD_BACKEND_URL: "<your-opd-claims-backend-url>",
   // ONE_WSO2_CC_EXPENSES_BACKEND_URL: "<your-cc-expenses-backend-url>",
   // ONE_WSO2_EXPENSE_CLAIMS_BACKEND_URL: "<your-expense-claims-backend-url>",
+  // ONE_WSO2_FINANCE_MASTER_DATA_BACKEND_URL: "<your-finance-master-data-backend-url>",
 
-  // Updates Manager backend base URL. Optional — when absent, UMT shows a
-  // not-connected state and makes no requests. The value is the service root;
-  // the access check is GET <base-url>/update/user-info.
+  // Updates Manager backend. The value is the service root; the access check
+  // is GET <base-url>/update/user-info.
   // ONE_WSO2_UMT_BACKEND_URL: "<your-updates-manager-backend-url>",
 
-  // Finance MIS ARR backend. Optional — when absent, MIS makes no requests.
-  // Take the *.wso2.com gateway URL, not the *.choreoapis.dev one Choreo
-  // advertises beside it: the production CSP allows only *.wso2.com and
-  // *.asgardeo.io, so the other host fails every call with nothing in the
-  // console. The version segment is part of the URL and differs by
-  // environment: production ends /v1, staging ends /v1.0.
+  // Finance MIS — the ARR service at ONE_WSO2_MIS_ARR_BACKEND_URL. Optional —
+  // when absent, MIS makes no requests.
+  //
+  // Two things to get right, each of which fails silently if you don't:
+  //
+  //  1. Take the *.wso2.com gateway URL, NOT the *.choreoapis.dev one Choreo
+  //     advertises next to it. The production CSP allows only *.wso2.com and
+  //     *.asgardeo.io, so a choreoapis.dev URL fails every call in a
+  //     production build with nothing in the console. It is a defect here,
+  //     not an alternative.
+  //  2. The version segment is part of the URL and differs by environment —
+  //     production ends /v1, staging ends /v1.0. Don't normalise them.
+  //
+  // Only ONE_WSO2_MIS_ARR_BACKEND_URL is configured. This app does not call
+  // any other MIS service, so there is no key for one.
+  //
+  // Configuring the URL is not enough to show MIS: every MIS screen is also
+  // behind the `mis` preview flag (ONE_WSO2_PREVIEW_FEATURES, below) until
+  // Finance has verified its figures.
+  //
   // ONE_WSO2_MIS_ARR_BACKEND_URL: "<mis-arr-backend-url>",
 
-  // leave-app frontend base URL (not its backend) — used to deep-link into
-  // flows this webapp doesn't replicate (e.g. sabbatical requests).
-  // Optional — when absent, that link is hidden.
-  // ONE_WSO2_LEAVE_WEB_APP_URL: "<your-leave-app-frontend-url>",
-
-  // digiops-marketing marketing-ops backend base URL — the Marketing Ops
-  // perspective. Unlike every backend above it's Python/FastAPI rather than
-  // Ballerina, and its routes live under /api/* (the Choreo proxy preserves
-  // that prefix). Same Choreo API gateway URL pattern otherwise. Optional —
-  // when absent, the Marketing Ops screens show a "not connected" state.
+  // Marketing Ops backend. Its routes live under /api/*, and the gateway
+  // preserves that prefix.
   // ONE_WSO2_MARKETINGOPS_BACKEND_URL: "<your-marketing-ops-backend-url>",
 
-  // digiops-finance due_diligence backend base URL — the Due Diligence app,
-  // surfaced under both the Finance and Legal perspectives. Same Choreo API
-  // gateway URL pattern as the other digiops-finance backends above. Optional
-  // — when absent, the Due Diligence screens show a "not connected" state.
+  // Due Diligence backend, surfaced under both the Finance and Legal
+  // perspectives.
   // ONE_WSO2_DUE_DILIGENCE_BACKEND_URL: "<your-due-diligence-backend-url>",
 
-  // ISAC base URL — a separate marketing application, linked to from the top of
-  // the Marketing Ops rail and opened in a new tab. Nothing here calls it as an
-  // API. Optional — when absent, the rail item is omitted entirely rather than
-  // rendered as a link that goes nowhere.
+  // ISAC base URL — a separate marketing application, linked from the top of
+  // the Marketing Ops rail and opened in a new tab. Nothing here calls it as
+  // an API. When absent, the rail item is omitted entirely.
   // ONE_WSO2_MARKETINGOPS_ISAC_URL: "<your-isac-url>",
 
   // CSM base URL — a separate application, reached from its launcher tile and
-  // opened in a new tab. Nothing here calls it as an API, and there is no route
-  // for it, so it is never a landing choice or a favourite. Optional — when
-  // absent, the tile stays in its unbuilt state rather than becoming a link
-  // that goes nowhere.
+  // opened in a new tab. There is no route for it, so it is never a landing
+  // choice or a favourite. When absent, the tile stays in its unbuilt state.
   // ONE_WSO2_CSM_URL: "<your-csm-url>",
 
-  // infra-portal backend — the Infra Portal perspective. Optional — when
-  // absent, Infra Portal shows a "not connected" state. Privileges come from
-  // this service's own /user-info (987 employee / 762 approver / 123 admin),
-  // not from people-app.
+  // Infra Portal backend. Privileges come from this backend's own /user-info
+  // (987 employee / 762 approver / 123 admin), not from the People backend.
   // ONE_WSO2_INFRA_BACKEND_URL: "<your-infra-portal-backend-url>",
 
+  // Base URL of the Product Download Stats API, including the version segment.
+  // Optional — when absent, Engineering Overview says it isn't connected and
+  // makes no requests.
+  // ONE_WSO2_PRODUCT_DOWNLOAD_STATS_BACKEND_URL: "<product-download-stats-backend-url>",
+
   // Pardot UI base URL — for deep-linking to an email template after Email
-  // Workbench pushes it. A link target, not an API. Optional; defaults to
-  // https://pi.pardot.com, which is correct for every WSO2 environment today.
+  // Workbench pushes it. A link target, not an API. Defaults to
+  // https://pi.pardot.com.
   // ONE_WSO2_PARDOT_BASE_URL: "https://pi.pardot.com",
 
   // GitHub OAuth for Infra Portal connect. Authorize URL defaults to GitHub.
@@ -163,15 +158,14 @@ window.config = {
 
   // Salesforce Lightning base URL — for deep-linking to the record an incoming
   // one collided with, from CRM Upload's review queue. A link target, not an
-  // API. Optional; defaults to https://wso2.lightning.force.com. Set it only
-  // for a sandbox org.
+  // API. Defaults to https://wso2.lightning.force.com. Set it only for a
+  // sandbox org.
   // ONE_WSO2_SALESFORCE_BASE_URL: "https://wso2.lightning.force.com",
 
-  // Idle handling. Optional — defaults to false. The "Are you still there?"
-  // dialog appears after 25 minutes of inactivity either way; this decides only
-  // what happens if it is ignored. False leaves it waiting and the session
-  // alive; true signs out at 30 minutes, which is what the security checklist
-  // (ONEWSO2-R1) asks for.
+  // Idle handling. Defaults to false. The "Are you still there?" dialog
+  // appears after 25 minutes of inactivity either way; this decides only what
+  // happens if it is ignored. False leaves it waiting and the session alive;
+  // true signs out at 30 minutes.
   // ONE_WSO2_IDLE_AUTO_SIGN_OUT: false,
 
   // Features that are built and merged but not released yet. Absent or false
@@ -184,5 +178,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, "finance-master-data": false, engineering: false, mis: false },
+
 };

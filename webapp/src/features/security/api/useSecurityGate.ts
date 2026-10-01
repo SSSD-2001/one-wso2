@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { isEvidencePortalBackendConfigured, isSecurityBackendConfigured } from "@config/apiConfig";
 import { EVIDENCE_ADMIN_ONLY_ITEM_IDS, EVIDENCE_ITEM_IDS, SECURITY_ITEM_PRIVILEGE } from "@constants/securityApps";
 import { useRiskPrivileges } from "@features/security/grc/modules/risk/hooks/useRiskPrivileges";
@@ -127,5 +128,14 @@ export function useSecurityGate(enabled = true): SecurityGate {
     canSee,
     isAuthorized: allItemIds.some((id) => canSee(id)),
     isResolving,
+  };
+}
+
+/** A failed privilege read means the section is not allowed. The landing does not retry it. */
+export function securityVisibility(gate: SecurityGate): VisibilityAnswer {
+  return {
+    canSee: (id) => gate.canSee(id),
+    resolving: gate.isResolving,
+    retry: () => undefined,
   };
 }

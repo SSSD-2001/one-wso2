@@ -58,7 +58,10 @@ describe("where each finance app lives", () => {
   it("keeps claims with the person, and the card with finance", async () => {
     const { ME_FINANCE_APPS, FINANCE_OVERVIEW_APPS, FINANCE_PERSPECTIVE_APPS } = await load();
     expect(keys(ME_FINANCE_APPS)).toEqual(["claims"]);
-    expect(keys(FINANCE_PERSPECTIVE_APPS)).toEqual(["cc"]);
+    // Master data joins the card app on the finance side: it is reference
+    // data the finance team maintains for everyone else's apps to read, not
+    // something an employee does for themself.
+    expect(keys(FINANCE_PERSPECTIVE_APPS)).toEqual(["cc", "finance-master-data"]);
     // Reading how the allowance is spent is a different job from filing or
     // approving a claim, so the dashboards sit in their own section above the
     // apps rather than one inside each of them.
@@ -91,6 +94,7 @@ describe("where each finance app lives", () => {
     expect(keys(FINANCE_APPS).sort()).toEqual([
       "cc",
       "claims",
+      "finance-master-data",
       "finance-overview",
     ]);
   });

@@ -1,7 +1,46 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 reviews:
   review_status: true
   auto_review:
     enabled: true
     base_branches: ["main", "dev-.*"]
+  path_instructions:
+    - path: "**"
+      instructions: |
+        One WSO2 is a public repository, and every feature should read as One WSO2's own.
+        Flag any line this PR ADDS (in code comments, test names, docs, READMEs or
+        webapp/public/config.js.example) that describes the code in terms of another
+        application it was copied or ported from:
+        - names of other repositories or apps, such as digiops-*, people-ops-suite,
+          grc-tools, cs-tools, customer-portal, *-app frontends, or "microapp";
+        - file paths or line numbers in another repository (for example `route.ts:47`);
+        - pull request or issue numbers in another repository;
+        - migration wording: "ported from", "the source", "source's own", "the original
+          app", "standalone app", "lifted", "migration", "parallel period", "deviation
+          from the source".
+        Suggest rewording that states the behaviour or the reason on its own terms, and
+        names a backend by its ONE_WSO2_* config key. Do not flag names the backend owns
+        (endpoint paths such as /legacy-par-history, status values such as PENDING_OLD),
+        and do not flag lines the PR did not add.
+        Also flag new links to Google Docs, Drive, Sheets or Sites, and new documents under
+        docs/ that restate what the code already says.
+  pre_merge_checks:
+    title:
+      mode: "warning"
+      requirements: >-
+        The title describes the change on its own terms. It does not name another
+        application or repository the code came from, and does not use migration wording
+        such as "port", "ported from" or "lift".
+    custom_checks:
+      - name: "No legacy or migration references"
+        mode: "warning"
+        instructions: >-
+          Fail if the pull request description or any commit message names another
+          application or repository the code was copied or ported from (for example
+          digiops-*, people-ops-suite, grc-tools, cs-tools, customer-portal, or an *-app
+          frontend), cites a file path or line number in another repository, cites a pull
+          request or issue number in another repository, or uses migration wording such as
+          "ported from", "the source's own", "the original app", "lifted", "migration" or
+          "parallel period". Pass otherwise.
 chat:
   auto_reply: true

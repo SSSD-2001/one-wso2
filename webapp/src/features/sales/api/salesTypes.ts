@@ -17,8 +17,6 @@
 // Wire types for the Echo (meet-app) backend. Mirrored from the service's own
 // Ballerina records rather than from the standalone webapp's Redux slice, so
 // the field names here are the ones actually on the wire.
-//
-// See docs/ported-apps/sales-meetings.md §5 for the contract.
 
 /** `meeting_status` — whether the calendar event still stands. */
 export type MeetingStatus = "ACTIVE" | "CANCELLED";

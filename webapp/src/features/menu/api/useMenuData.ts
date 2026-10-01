@@ -19,8 +19,6 @@
 // Every key is scoped to the signed-in subject so switching accounts in one tab
 // cannot serve the previous user's rows from cache — and here 403-ness is itself
 // user-specific, so even the deployment-wide window config is scoped.
-//
-// See docs/ported-apps/menu-app.md §5 for the contract.
 
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";

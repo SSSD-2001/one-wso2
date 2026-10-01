@@ -218,11 +218,18 @@ export default function LegalCommentInputs({
                     sx={{ "& .MuiInputBase-root": { p: 1.5 } }}
                   />
                   {showFileAttachment && commentFiles.length < FILE_UPLOAD_LIMIT && (
-                    <Button size="small" variant="outlined" startIcon={<UploadIcon size={15} />} onClick={() => editFileInput.current?.click()} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
-                      Attach file
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={uploadFile.isPending ? <CircularProgress size={15} /> : <UploadIcon size={15} />}
+                      disabled={uploadFile.isPending}
+                      onClick={() => editFileInput.current?.click()}
+                      sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    >
+                      {uploadFile.isPending ? "Uploading…" : "Attach file"}
                     </Button>
                   )}
-                  <input ref={editFileInput} type="file" multiple hidden onChange={(e) => void uploadFiles(e.target.files, editNewFiles, setEditNewFiles)} />
+                  <input ref={editFileInput} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => void uploadFiles(e.target.files, editNewFiles, setEditNewFiles)} />
                   <FileList files={commentFiles} savedFiles={savedCommentFiles} onOpen={openFile} onRemove={(f) => removeFile(f, editNewFiles, setEditNewFiles)} />
                   <Stack direction="row" spacing={1}>
                     <Button variant="contained" size="small" onClick={() => saveEditedComment(item.commentId)} disabled={editComment.isPending}>
@@ -264,11 +271,18 @@ export default function LegalCommentInputs({
               sx={{ "& .MuiInputBase-root": { p: 1.5 } }}
             />
             {showFileAttachment && newFiles.length < FILE_UPLOAD_LIMIT && (
-              <Button size="small" variant="outlined" startIcon={<UploadIcon size={15} />} onClick={() => newFileInput.current?.click()} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
-                Attach file
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={uploadFile.isPending ? <CircularProgress size={15} /> : <UploadIcon size={15} />}
+                disabled={uploadFile.isPending}
+                onClick={() => newFileInput.current?.click()}
+                sx={{ alignSelf: "flex-start", textTransform: "none" }}
+              >
+                {uploadFile.isPending ? "Uploading…" : "Attach file"}
               </Button>
             )}
-            <input ref={newFileInput} type="file" multiple hidden onChange={(e) => void uploadFiles(e.target.files, newFiles, setNewFiles)} />
+            <input ref={newFileInput} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => void uploadFiles(e.target.files, newFiles, setNewFiles)} />
             <FileList files={newFiles} savedFiles={[]} onOpen={openFile} onRemove={(f) => removeFile(f, newFiles, setNewFiles)} />
             <Stack direction="row" spacing={1}>
               <Button variant="contained" size="small" onClick={saveNewComment} disabled={currentComment.trim() === "" || addComment.isPending}>

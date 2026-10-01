@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { INFRA_APPS } from "@constants/infraApps";
 import { HttpError } from "@api/http";
 import { describeError } from "@api/errors";
@@ -92,4 +93,10 @@ export interface InfraGate {
             : undefined,
         retry: () => void userInfo.refetch(),
     };
+}
+
+export function infraVisibility(gate: InfraGate): VisibilityAnswer {
+  return gate.isError
+    ? { canSee: gate.canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee: gate.canSee, resolving: gate.isResolving, retry: () => undefined };
 }

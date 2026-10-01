@@ -17,8 +17,7 @@
 // derived keys that keep paging honest.
 //
 // Nothing here touches React, the network, or the clock. That is the point —
-// these are the rules the spec describes (docs/ported-apps/my-team.md §3), and
-// they are the part worth testing.
+// these are the screen's rules, and they are the part worth testing.
 
 import type {
   EmployeeFilters,

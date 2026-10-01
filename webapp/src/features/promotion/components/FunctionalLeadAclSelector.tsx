@@ -34,8 +34,7 @@ import type { PromotionBusinessUnitAccess, PromotionDepartmentAccess } from "../
 // tri-state selection semantics (checking a parent selects every
 // descendant, a partially-selected parent shows indeterminate) as a single
 // expandable tree instead — simpler to get right for a picker this deep,
-// and no less capable. See docs/ported-apps/promotion-app.md's own
-// deviation entry.
+// and no less capable.
 export default function FunctionalLeadAclSelector({
   businessUnits,
   selection,

@@ -28,6 +28,8 @@ import { useActivePromotionCycle } from "../api/usePromotionCycle";
 import { usePromotionRequests, useUpdatePromotionRequestRejectionReason } from "../api/usePromotionRequests";
 import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "../components/PromotionEmptyState";
+import PromotionFeedbackSnackbar from "../components/PromotionFeedbackSnackbar";
+import { usePromotionFeedback } from "../util/usePromotionFeedback";
 import { PromotionGridToolbar } from "../components/PromotionGridToolbar";
 import DeclinedReasonDialog, { type DeclinedReasonTarget } from "../components/DeclinedReasonDialog";
 import { promotionRequestColor } from "../util/promotionStatus";
@@ -43,6 +45,7 @@ export default function AdminIndividualContributorTab() {
   );
   const updateReason = useUpdatePromotionRequestRejectionReason();
   const [editingTarget, setEditingTarget] = useState<DeclinedReasonTarget | null>(null);
+  const { feedback, notifySuccess, notifyError, close } = usePromotionFeedback();
 
   const rows = requests.data?.promotionRequests ?? [];
 
@@ -100,6 +103,7 @@ export default function AdminIndividualContributorTab() {
 
   return (
     <>
+      <PromotionFeedbackSnackbar feedback={feedback} onClose={close} />
       <DeclinedReasonDialog
         title="Declined Reason"
         target={editingTarget}
@@ -109,7 +113,13 @@ export default function AdminIndividualContributorTab() {
           if (!editingTarget) return;
           updateReason.mutate(
             { id: editingTarget.key, reasonForRejection: encodePromotionText(text) },
-            { onSuccess: () => setEditingTarget(null) },
+            {
+              onSuccess: () => {
+                setEditingTarget(null);
+                notifySuccess("Declined reason updated.");
+              },
+              onError: (error) => notifyError(`Unable to update the declined reason. ${humanizeHttpError(error)}`),
+            },
           );
         }}
       />

@@ -152,6 +152,9 @@ function account(overrides: Partial<BankAccount>): BankAccount {
     paymentMethod: null,
     effectiveFrom: "2026-01-01",
     createdOn: "2026-01-01",
+    netSuiteInternalId: null,
+    netSuiteVendorId: null,
+    netSuitePaymentFileFormat: null,
     ...overrides,
   };
 }

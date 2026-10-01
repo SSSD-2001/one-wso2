@@ -18,8 +18,7 @@
 // perspective — viewing your own promotion history is something every
 // employee does for themself, same rationale as PAR's ME_PAR_APPS (see
 // parApps.ts) and Leave. The Lead/Functional Lead/Promotion Board/Admin
-// portals are People Ops work and, once ported, will live there instead —
-// see docs/ported-apps/promotion-app.md.
+// portals are People Ops work and, once ported, will live there instead.
 
 import { AwardIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";

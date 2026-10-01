@@ -39,7 +39,7 @@ import type { ParCycle } from "../api/types";
 
 // People Ops → Performance → History: par-app's ParHistory.tsx "My History" tab
 // (its lead-only "Report Chain" tab belongs with the Lead Portal work, not
-// here — see docs/ported-apps/par-app.md). A row's own record is fetched
+// here). A row's own record is fetched
 // only once opened, not one request per row on load.
 export default function ParHistoryTab() {
   const profile = useMeProfile();

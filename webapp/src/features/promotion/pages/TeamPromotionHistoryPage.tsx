@@ -18,8 +18,7 @@
 // view/leadEmployeeHistory/leadEmployeeHistory.tsx ("Team Promotion
 // History", route.ts: allowRoles: [Role.LEAD]). A separate top-level screen
 // from the Lead Portal (lead.tsx, "Time Based Promotions") in source, kept
-// separate here too rather than folded into it as a third tab — see
-// docs/ported-apps/promotion-app.md.
+// separate here too rather than folded into it as a third tab.
 import { Navigate, Outlet } from "react-router";
 import { ArrowLeftRightIcon, IdCardIcon, NavigationIcon } from "@wso2/oxygen-ui-icons-react";
 import PromotionPageShell from "../components/PromotionPageShell";

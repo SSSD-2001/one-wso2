@@ -23,7 +23,7 @@ import type { PromotionUser } from "../api/types";
 // viewer icon source itself keeps but has commented out ("Temporary Hide
 // for not functioning") is not reproduced — unreachable UI in the real
 // running app, same principle as every other dead-code omission in this
-// port (see docs/ported-apps/promotion-app.md §5, deviation 1).
+// port.
 export default function UserRow({
   user,
   isSelf,

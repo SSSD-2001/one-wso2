@@ -16,7 +16,7 @@
 
 // PAR (Performance Appraisal Review) app types. Subset of
 // digiops-hr/apps/par-app backend modules/types/types.bal — only the
-// employee-facing fields this app renders. See docs/ported-apps/par-app.md.
+// employee-facing fields this app renders.
 
 // GET /employees/{workEmail} — mirrors par-app backend's EmployeeInfo
 // (modules/types/types.bal), narrowed to the one field this app reads:

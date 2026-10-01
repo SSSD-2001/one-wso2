@@ -20,10 +20,8 @@ import { Box, Card, Typography } from "@wso2/oxygen-ui";
 // The outlined-card + icon-header (+ optional tab strip) chrome every
 // promotion-app screen shares (promotion.tsx, lead.tsx, functionalLead.tsx,
 // promotionBoard.tsx, administration.tsx all render this exact frame around
-// their own content). Kept visually close to source rather than this app's
-// usual bare-title page — see docs/ported-apps/promotion-app.md's note on
-// why promotion's own chrome is reproduced instead of using a generic shell
-// like PAR's ParShell.
+// their own content). Kept visually close to source rather than using this
+// app's usual bare-title page or a generic shell like PAR's ParShell.
 export default function PromotionPageShell({
   icon,
   title,

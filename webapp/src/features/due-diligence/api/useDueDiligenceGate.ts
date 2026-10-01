@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { describeError } from "@api/errors";
 import { isDueDiligenceBackendConfigured } from "@config/apiConfig";
 import { useDueDiligenceMe } from "./useDueDiligenceMe";
@@ -105,4 +106,10 @@ export function useDueDiligenceGate(enabled = true): DueDiligenceGate {
     errorMessage: me.isError ? describeError(me.error) : undefined,
     retry: () => void me.refetch(),
   };
+}
+
+export function dueDiligenceVisibility(gate: DueDiligenceGate): VisibilityAnswer {
+  return gate.isError
+    ? { canSee: gate.canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee: gate.canSee, resolving: gate.isResolving, retry: () => undefined };
 }

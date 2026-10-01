@@ -88,6 +88,22 @@ export default function FinanceQuestionDetails({
     (question.questionId === 44 && gate.hasRole("financeApprover")) ||
     (question.questionId === SPECIAL_APPROVAL_QID && gate.hasRole("financeSpecialApprover"));
 
+  // Deliberately broader than isAuthorized above: isAuthorized only covers
+  // the specific approval-decision questions (40/41/44/special-approval),
+  // so it's false for every other question — including the file-attachment
+  // one — regardless of role. Attaching a supporting document isn't a
+  // decision/approval action, so the bar for it is the same one that gates
+  // the Finance tab itself (see canSeeFinance in PartnerDashboardPage.tsx):
+  // anyone who can be in this tab at all may attach a file, not just the
+  // narrower set of people who may approve/reject this specific question.
+  const canUploadFiles =
+    gate.hasRole("financeRole") ||
+    gate.hasRole("financeApprover") ||
+    gate.hasRole("financeSpecialApprover") ||
+    gate.hasRole("financialCreator") ||
+    gate.hasRole("financialReviewer") ||
+    gate.hasRole("superRole");
+
   const fieldDisabled = !editing;
   const specialApprovalRequested = specialApproval !== "";
 
@@ -213,6 +229,7 @@ export default function FinanceQuestionDetails({
           approvalEmailSent={Boolean(approvalEmailSent)}
           applicantEmail={applicantEmail}
           fieldDisabled={isAuthorized ? fieldDisabled : true}
+          canUploadFiles={canUploadFiles}
           onAnswered={onAnswered}
         />
       ))}

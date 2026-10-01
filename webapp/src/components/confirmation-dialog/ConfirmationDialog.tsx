@@ -15,6 +15,7 @@
 // under the License.
 
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@wso2/oxygen-ui";
+import { dialogPaperSx } from "./dialogPaperSx";
 
 export interface ConfirmationContent {
   title: string;
@@ -40,7 +41,7 @@ export default function ConfirmationDialog({
 }) {
   if (!content) return null;
   return (
-    <Dialog open fullWidth onClose={onClose}>
+    <Dialog open fullWidth onClose={onClose} slotProps={{ paper: { sx: dialogPaperSx } }}>
       <DialogTitle>{content.title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{content.text}</DialogContentText>

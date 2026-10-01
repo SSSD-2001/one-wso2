@@ -17,9 +17,8 @@
 // The employee-facing half of par-app, surfaced inside the Me perspective —
 // completing and sharing your own PAR is something every employee does for
 // themself, same rationale as Leave and Claims. The Lead Portal (reviewing
-// and rating *other people's* PAR) stays under People Ops — see
-// docs/ported-apps/par-app.md and docs/ported-apps/claim-approval.md for the
-// same split applied to claim approval.
+// and rating *other people's* PAR) stays under People Ops, the same split
+// claim approval applies.
 
 import { ClipboardCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";

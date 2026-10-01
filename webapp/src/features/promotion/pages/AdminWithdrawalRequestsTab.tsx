@@ -19,9 +19,11 @@
 // approved) promotion request, org-wide. A card list (source's own
 // withdrawalRequestLine.tsx, not CustomTable) with per-row
 // approve/reject on WITHDRAW rows only.
+import { useState } from "react";
 import { Box, Divider, IconButton, Skeleton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { InboxIcon, RefreshCwIcon, TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
+import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useApproveWithdrawal, useRejectWithdrawal, useWithdrawalRequests } from "../api/useWithdrawalRequests";
 import PromotionEmptyState from "../components/PromotionEmptyState";
 import WithdrawalRequestCard from "../components/WithdrawalRequestCard";
@@ -30,6 +32,7 @@ export default function AdminWithdrawalRequestsTab() {
   const requests = useWithdrawalRequests();
   const approve = useApproveWithdrawal();
   const reject = useRejectWithdrawal();
+  const [confirm, setConfirm] = useState<ConfirmationContent | null>(null);
 
   const rows = requests.data?.promotionRequests ?? [];
   const withdrawalCount = rows.filter((r) => r.status === "WITHDRAW").length;
@@ -37,6 +40,8 @@ export default function AdminWithdrawalRequestsTab() {
 
   return (
     <>
+      <ConfirmationDialog content={confirm} onClose={() => setConfirm(null)} />
+
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
         <Tooltip title="Refresh">
           <IconButton size="small" onClick={() => void requests.refetch()}>
@@ -73,8 +78,22 @@ export default function AdminWithdrawalRequestsTab() {
             request={request}
             approving={approve.isPending && approve.variables === request.id}
             rejecting={reject.isPending && reject.variables === request.id}
-            onApprove={() => approve.mutate(request.id)}
-            onReject={() => reject.mutate(request.id)}
+            onApprove={() =>
+              setConfirm({
+                title: "Are you sure?",
+                text: "Do you want to approve this withdrawal request?",
+                confirmLabel: "Approve",
+                confirmAction: () => approve.mutate(request.id),
+              })
+            }
+            onReject={() =>
+              setConfirm({
+                title: "Are you sure?",
+                text: "Do you want to reject this withdrawal request?",
+                confirmLabel: "Reject",
+                confirmAction: () => reject.mutate(request.id),
+              })
+            }
           />
         ))
       )}

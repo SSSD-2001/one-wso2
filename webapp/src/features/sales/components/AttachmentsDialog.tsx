@@ -40,8 +40,7 @@ import { describeError } from "../util/salesError";
  *
  * These are LINKS, not content: the backend returns fileUrl/iconLink/mimeType
  * and nothing else, so the recording opens in Drive rather than playing here.
- * An in-app player needs endpoints that do not exist yet — see
- * docs/ported-apps/sales-meetings.md §7.
+ * An in-app player needs endpoints that do not exist yet.
  */
 export default function AttachmentsDialog({
   meeting,

@@ -14,8 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 // Reads for the My Team screen.
-//
-// See docs/ported-apps/my-team.md §5 for the contract.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";

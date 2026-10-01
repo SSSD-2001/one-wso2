@@ -56,14 +56,10 @@ export function decodePromotionText(value: string | null | undefined): string {
 
 // ---- HTML sanitizing ---------------------------------------------------------
 //
-// Source's own RichTextContent renders decoded HTML with no sanitization at
-// all (dangerouslySetInnerHTML on the raw decoded string) — the write side
-// sanitizes (richEditor.tsx's sanitizeHtml call) but the read side doesn't,
-// which is a real gap for a field one person writes and a DIFFERENT person
-// (the employee, an admin, a promotion board member) later reads. This port
-// sanitizes on both sides instead — see docs/ported-apps/promotion-app.md
-// deviation. Same allowlist shape as source's own richEditor.tsx
-// (allowedTags: p/br/strong/em/u/ol/ul/li/a), translated to DOMPurify.
+// Sanitized on both write and read: these fields are written by one person
+// and read by a DIFFERENT person (the employee, an admin, a promotion board
+// member), so the read side never trusts that the editor sanitized them.
+// Allowlist: p/br/strong/em/u/ol/ul/li/a.
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: ["p", "br", "strong", "em", "u", "ol", "ul", "li", "a"],
   ALLOWED_ATTR: ["href", "target"],

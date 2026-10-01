@@ -26,8 +26,7 @@ import { capitalizeWords } from "../util/promotionText";
 // date, Last promoted Date — none of those three fields exist on the
 // backend's own FullPromotionRequest record (checked against
 // modules/db/types.bal), so source's own columns for them render blank in
-// the real running app; reproducing empty columns would add nothing. See
-// docs/ported-apps/promotion-app.md's own deviation entry.
+// the real running app; reproducing empty columns would add nothing.
 export function basePromotionRequestColumns(): DataGrid.GridColDef<PromotionRequestFull>[] {
   return [
     { field: "employeeEmail", headerName: "Employee Email", flex: 1.4, minWidth: 200 },

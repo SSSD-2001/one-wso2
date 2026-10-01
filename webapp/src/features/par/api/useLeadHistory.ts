@@ -16,11 +16,11 @@
 
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { authedGet, defaultQueryRetry } from "@api/http";
+import { authedGet, defaultQueryRetry, HttpError } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { parBackendUrl, parServiceUrls } from "@config/apiConfig";
 import { digiopsHeaders } from "@features/my/util/digiopsHeaders";
-import type { Par360Review, ParCycle, ParEmployee, ParLegacyHistory, ParParticipant } from "./types";
+import type { Par360Review, ParCycle, ParEmployee, ParLegacyHistory, ParRating } from "./types";
 
 // GET the lead's own direct reports — EmployeeHistoryView.tsx's own
 // fetchEntityEmployees. Org-chart data, not tied to any PAR cycle: this is
@@ -57,30 +57,6 @@ export function useAllClosedParCycles() {
       return authedGet<ParCycle[]>(parServiceUrls.parAllClosedCycles(), accessToken, digiopsHeaders());
     },
     staleTime: 10 * 60 * 1000,
-    retry: defaultQueryRetry,
-  });
-}
-
-// GET the lead's own reports who have a record in one cycle —
-// EmployeeHistoryView.tsx's own fetchParticipants(leadEmail=self). Scopes
-// the employee picker down to whoever actually has data for the selected
-// real cycle.
-export function useParHistoryParticipants(parCycleId: number | undefined, leadEmail: string | undefined) {
-  const { isSignedIn } = useAsgardeo();
-  const getAccessToken = useAccessToken();
-  const backendConfigured = Boolean(parBackendUrl);
-  return useQuery<ParParticipant[]>({
-    queryKey: ["par-history-participants", parCycleId, leadEmail],
-    enabled: isSignedIn && backendConfigured && Boolean(parCycleId) && Boolean(leadEmail),
-    queryFn: async () => {
-      const accessToken = await getAccessToken();
-      return authedGet<ParParticipant[]>(
-        parServiceUrls.parHistoryParticipants(parCycleId!, leadEmail!),
-        accessToken,
-        digiopsHeaders(),
-      );
-    },
-    staleTime: 60 * 1000,
     retry: defaultQueryRetry,
   });
 }
@@ -170,4 +146,55 @@ export function useParLegacyHistoryFanOut(emails: string[]): {
     isLoadingByEmail[emails[index]] = result.isLoading;
   });
   return { byEmail, isLoading: results.some((r) => r.isLoading), isLoadingByEmail };
+}
+
+/** One report's rating for one real cycle, keyed by email. `undefined`
+ * means still loading; `null` means no record exists for that cycle. */
+export interface ParRatingByEmail {
+  [workEmail: string]: ParRating | null | undefined;
+}
+
+// Same fan-out shape as useParLegacyHistoryFanOut — no bulk "every report's
+// rating" endpoint exists, so this calls useParRating's own query once per
+// report, sharing its exact key so picking one afterwards hits the cache.
+export function useParRatingFanOut(parCycleId: number | undefined, emails: string[]): {
+  byEmail: ParRatingByEmail;
+  isLoadingByEmail: Record<string, boolean>;
+  isErrorByEmail: Record<string, boolean>;
+  refetchByEmail: Record<string, () => void>;
+} {
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const backendConfigured = Boolean(parBackendUrl);
+  const results = useQueries({
+    queries: emails.map((email) => ({
+      queryKey: ["par-rating", parCycleId, email],
+      enabled: isSignedIn && backendConfigured && Boolean(parCycleId) && Boolean(email),
+      queryFn: async () => {
+        const accessToken = await getAccessToken();
+        try {
+          return await authedGet<ParRating>(parServiceUrls.parRating(parCycleId!, email), accessToken, digiopsHeaders());
+        } catch (e) {
+          // Backend returns 404 when there's no rating record yet — a
+          // valid "no data" case, same as useParRating's own handling.
+          if (e instanceof HttpError && e.status === 404) return null;
+          throw e;
+        }
+      },
+      staleTime: 5 * 60 * 1000,
+      retry: defaultQueryRetry,
+    })),
+  });
+
+  const byEmail: ParRatingByEmail = {};
+  const isLoadingByEmail: Record<string, boolean> = {};
+  const isErrorByEmail: Record<string, boolean> = {};
+  const refetchByEmail: Record<string, () => void> = {};
+  results.forEach((result, index) => {
+    byEmail[emails[index]] = result.data;
+    isLoadingByEmail[emails[index]] = result.isLoading;
+    isErrorByEmail[emails[index]] = result.isError;
+    refetchByEmail[emails[index]] = () => void result.refetch();
+  });
+  return { byEmail, isLoadingByEmail, isErrorByEmail, refetchByEmail };
 }

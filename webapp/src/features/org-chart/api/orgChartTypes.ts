@@ -15,10 +15,9 @@
 // under the License.
 
 // Wire type for the people-app backend's employee directory endpoint
-// (GET /employees/basic-info, people-ops-suite PR #345), which now backs Org
+// (GET /employees/basic-info), which now backs Org
 // Chart directly. Source of truth: EmployeeDirectoryInfo in
-// apps/people-app/backend/modules/database/types.bal. See
-// docs/ported-apps/org-chart.md for the contract.
+// apps/people-app/backend/modules/database/types.bal.
 export interface EmployeeDirectoryRecord {
   employeeId: string;
   firstName: string;

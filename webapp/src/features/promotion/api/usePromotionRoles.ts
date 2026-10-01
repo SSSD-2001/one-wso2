@@ -14,6 +14,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
+import {
+  PROMOTION_ADMIN_PORTAL_ITEM_ID,
+  PROMOTION_BOARD_PORTAL_ITEM_ID,
+  PROMOTION_CYCLE_HISTORY_ITEM_ID,
+  PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID,
+  PROMOTION_LEAD_PORTAL_ITEM_ID,
+  PROMOTION_TEAM_HISTORY_ITEM_ID,
+} from "@constants/perspectives";
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet, defaultQueryRetry } from "@api/http";
@@ -71,5 +80,27 @@ export function usePromotionPrivileges(workEmail: string | undefined, enabled = 
     error: query.error,
     isFetching: query.isFetching,
     refetch: query.refetch,
+  };
+}
+
+/** Which promotion section a caller may see. A failed read leaves every role false and hides the sections. */
+export function promotionVisibility(privileges: {
+  isLead: boolean;
+  isFunctionalLead: boolean;
+  isPromotionBoardMember: boolean;
+  isHrAdmin: boolean;
+  isLoading: boolean;
+}): VisibilityAnswer {
+  return {
+    canSee: (id) => {
+      if (id === PROMOTION_LEAD_PORTAL_ITEM_ID || id === PROMOTION_TEAM_HISTORY_ITEM_ID) return privileges.isLead;
+      if (id === PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID) return privileges.isFunctionalLead;
+      if (id === PROMOTION_BOARD_PORTAL_ITEM_ID) return privileges.isPromotionBoardMember;
+      if (id === PROMOTION_ADMIN_PORTAL_ITEM_ID) return privileges.isHrAdmin;
+      if (id === PROMOTION_CYCLE_HISTORY_ITEM_ID) return privileges.isHrAdmin || privileges.isFunctionalLead;
+      return false;
+    },
+    resolving: privileges.isLoading,
+    retry: () => undefined,
   };
 }

@@ -44,6 +44,10 @@ import { formatDate } from "../util/promotionHistory";
 import type { PromotionRequestFull } from "../api/types";
 import { GRID_NO_POINTER_FOCUS_SX } from "@utils/dataGridSx";
 
+const STRIPE_SX = {
+  "& .row-stripe": { bgcolor: "action.hover" },
+};
+
 export default function FLActiveRequestsTab() {
   const userInfo = useUserInfo();
   const asgardeoUser = useAsgardeoUser();
@@ -52,8 +56,8 @@ export default function FLActiveRequestsTab() {
   const cycle = useActivePromotionCycle();
   const deadlinePast = isPromotionDeadlinePast(cycle.cycle?.functionalLeadDeadline);
   const requests = usePromotionRequests(
-    { statusArray: ["SUBMITTED"], enableBuFilter: true },
-    !cycle.isPending && Boolean(workEmail),
+    { statusArray: ["SUBMITTED"], enableBuFilter: true, cycleId: cycle.cycle?.id },
+    !cycle.isPending && Boolean(workEmail) && Boolean(cycle.cycle),
   );
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -185,13 +189,19 @@ export default function FLActiveRequestsTab() {
           </Button>
         </Stack>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => void requests.refetch()}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              if (!cycle.isError && cycle.cycle && workEmail) void requests.refetch();
+              else void cycle.refetch();
+            }}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>
       </Box>
 
-      {cycle.isPending || requests.isPending ? (
+      {cycle.isPending || (Boolean(cycle.cycle) && requests.isPending) ? (
         <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1 }} />
       ) : cycle.isError ? (
         <PromotionEmptyState
@@ -218,9 +228,10 @@ export default function FLActiveRequestsTab() {
           onRowSelectionModelChange={(model) =>
             setSelectedIds(resolveGridSelectedIds(model, rows))
           }
+          getRowClassName={(params) => (params.indexRelativeToCurrentPage % 2 === 0 ? "row-stripe" : "")}
           showToolbar
           slots={{ toolbar: PromotionGridToolbar }}
-          sx={{ border: "none", ...GRID_NO_POINTER_FOCUS_SX }}
+          sx={{ border: "none", ...GRID_NO_POINTER_FOCUS_SX, ...STRIPE_SX }}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
           pageSizeOptions={[10, 25, 50]}
         />

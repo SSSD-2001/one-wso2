@@ -23,7 +23,6 @@ import PromotionRequestDetailPanel from "./PromotionRequestDetailPanel";
 // the row (an "ExpandMore" action), which MUI X DataGrid Community can't do
 // (getDetailPanelContent is a Pro-only feature — checked, not available in
 // this app's DataGrid re-export) — a dialog on the same action icon instead.
-// See docs/ported-apps/promotion-app.md's own deviation entry.
 export default function PromotionRequestDetailDialog({
   request,
   onClose,

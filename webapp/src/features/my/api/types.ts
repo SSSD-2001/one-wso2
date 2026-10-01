@@ -129,9 +129,8 @@ export interface EmployeePersonalInfo {
   emergencyContacts: EmergencyContact[] | null;
 }
 
-// Banking app types. Mirrors digiops-hr/apps/banking backend types —
-// AccountType + AccountStatus enums, and the subset of EmployeeBankAccount
-// fields we render.
+// Banking backend types — AccountType + AccountStatus enums, and the
+// subset of EmployeeBankAccount fields we render.
 
 export type AccountType = "SALARY" | "REIMBURSEMENT" | "CONSULTANCY";
 export type AccountStatus = "ACTIVE" | "INACTIVE" | "REQUESTED" | "REJECTED";
@@ -158,11 +157,46 @@ export interface BankAccount {
   paymentMethod: string | null;
   effectiveFrom: string;
   createdOn: string | null;
+  // NetSuite identifiers, only ever populated once an account has been
+  // through NetSuite — null until then. Only the Change Requests tab's
+  // detail view renders these; every other Banking screen ignores them.
+  netSuiteInternalId: string | null;
+  netSuiteVendorId: string | null;
+  netSuitePaymentFileFormat: string | null;
 }
 
 export interface BankAccountsResponse {
   bankAccounts: BankAccount[];
   count: number;
+}
+
+// GET /employee/accounts admin filters (Report tab). `createdFrom`/
+// `createdTo` are "" when unset, never undefined, so a component can
+// always bind them to a controlled input.
+export interface ReportFilters {
+  createdFrom: string;
+  createdTo: string;
+  accountTypesArray: AccountType[];
+  statusArray: AccountStatus[];
+}
+
+// GET /employees on the banking backend (ONE_WSO2_BANKING_BACKEND_URL) —
+// its OWN employee directory. Deliberately distinct from the `Employee`
+// interface above, which is a different record with a different field set:
+// this data comes from the banking backend only, never borrowed from
+// another backend's, even when the other backend already has an equivalent
+// record.
+export interface BankingEmployee {
+  employeeId: string | null;
+  firstName: string;
+  lastName: string;
+  workEmail: string;
+  department: string | null;
+  team: string | null;
+  employeeThumbnail: string | null;
+  jobRole: string;
+  epf: string | null;
+  location: string;
 }
 
 // GET /employee-info on the banking backend — only what the Banking page
@@ -214,9 +248,19 @@ export interface BanksResponse {
   count: number;
 }
 
+// PATCH /threshold body — the backend's own db:ThresholdTypes enum member
+// names, sent verbatim as strings. Each key is owned by a different admin:
+// People Ops owns SALARY_THRESHOLD, Finance owns CONSULTANCY_THRESHOLD.
+export type ThresholdKey = "SALARY_THRESHOLD" | "CONSULTANCY_THRESHOLD";
+
+export interface UpdateThresholdPayload {
+  key: ThresholdKey;
+  value: number;
+}
+
 // POST /employee/accounts body. Every Account Type sends the same shape —
 // branchName/branchCode are simply empty for CONSULTANCY rather than a
-// different payload shape, matching the source app's own form.
+// different payload shape.
 export interface CreateBankAccountRequestPayload {
   employeeEmail: string;
   accountType: AccountType;

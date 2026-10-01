@@ -14,7 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { FINANCE_APPS } from "@constants/financeApps";
+import type { Capability } from "@constants/appMenu";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { useCcUserInfo } from "../cc/useCc";
 import { ccHasAccess } from "../cc/ccTypes";
 import { useOpdUserInfo } from "../opd/useOpd";
@@ -30,6 +33,26 @@ const RESTRICTED_IDS = new Set(
     .filter((it) => it.requires && it.requires.length > 0)
     .map((it) => it.id),
 );
+
+/**
+ * Whether Master Data is open to this reader — pulled out of the `canSee`
+ * switch below so a caller can ask this ONE question without mounting the
+ * rest of this hook's cc/opd/expense queries to get an answer.
+ *
+ * `MasterDataRoute` is exactly that caller: those three backends have
+ * nothing to do with whether someone may open Master Data (see the
+ * master-data case's own comment), so a route guard built on the full
+ * `useFinanceGate` was blocking on THEIR `isLoading` — a slow or erroring
+ * CC/OPD/Expense backend in some environment held the page on a blank
+ * screen for a reader who was always going to be let in, once the two
+ * things that actually decide this (identity + the preview flag) resolve.
+ * Exported so both the switch case and the route call the same check —
+ * two independent copies of `isPreviewEnabled(...) && caps.has("admin")`
+ * is how one of them quietly drifts from the other.
+ */
+export function canSeeMasterData(caps: ReadonlySet<Capability> | undefined): boolean {
+  return isPreviewEnabled("finance-master-data") && (caps?.has("admin") ?? false);
+}
 
 // Role-gates the Finance menu items (surfaced under Me) against each app's
 // OWN backend roles — not the coarse One WSO2 capabilities derived from
@@ -61,7 +84,13 @@ export interface FinanceGate {
   opdErrored: boolean;
 }
 
-export function useFinanceGate(enabled = true): FinanceGate {
+/**
+ * @param caps The portal's coarse capabilities, for the finance items that
+ *   have no backend role of their own — currently just master data. Passed
+ *   in rather than read here: the rail has already derived it from the
+ *   existing identity query this hook would otherwise call a second time.
+ */
+export function useFinanceGate(enabled = true, caps?: ReadonlySet<Capability>): FinanceGate {
   const cc = useCcUserInfo(enabled);
   const opd = useOpdUserInfo(enabled);
   const expense = useExpenseAppData(enabled);
@@ -116,6 +145,23 @@ export function useFinanceGate(enabled = true): FinanceGate {
       // `opdErrored` on `FinanceGate` above.
       case "finance-overview":
         return ccHasOwnCard || opdFinance || opdErrored;
+      // The four master-data tables. Finance reference data that the other
+      // apps read and only finance writes, so all four answer the same way —
+      // listed individually rather than as a prefix match so that a new tab
+      // has to be named here before it appears, the same fail-closed rule
+      // the default case enforces.
+      //
+      // Gated on BOTH the preview flag and `admin`, not either alone: the
+      // flag answers "does this environment have it yet" (off by default —
+      // see previewFeatures.ts — so prod stays untouched by this merging),
+      // while `admin` is the actual per-reader permission, same shape as
+      // every other restricted item here. Turning the flag on in an
+      // environment does not hand the tables to every employee in it.
+      case "master-data-subsidiaries":
+      case "master-data-departments":
+      case "master-data-expense-types":
+      case "master-data-credit-cards":
+        return canSeeMasterData(caps);
       default:
         // Per-user views (New / Pending / History) are open; any other item
         // that declares `requires` but reaches here fails closed rather than
@@ -126,4 +172,13 @@ export function useFinanceGate(enabled = true): FinanceGate {
 
   const isResolving = enabled && (cc.isLoading || opd.isLoading || expense.isLoading);
   return { canSee, isResolving, ccHasOwnCard, opdFinance, opdErrored };
+}
+
+/** Rail and landing facts. Dashboard-tab fields stay on FinanceGate. */
+export function financeVisibility(gate: FinanceGate): VisibilityAnswer {
+  return {
+    canSee: (id) => gate.canSee(id),
+    resolving: gate.isResolving,
+    retry: () => undefined,
+  };
 }

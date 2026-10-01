@@ -21,7 +21,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // file.
 type Perspectives = typeof import("./perspectives");
 
-async function load(preview: { umt?: boolean; infra?: boolean } = {}): Promise<Perspectives> {
+async function load(
+  preview: { umt?: boolean; infra?: boolean; engineering?: boolean; mis?: boolean } = {},
+): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
     ...(window.config ?? {}),
@@ -38,10 +40,32 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
+// Finance MIS has shown live figures on stage, but Finance has not yet verified
+// them, so it lands behind its own flag, as a whole.
+describe("Finance MIS's rail entries", () => {
+  const misIdsIn = (perspectives: Perspectives) =>
+    (perspectives.findPerspectiveByKey("finance")?.sections ?? [])
+      .flatMap((section) => [section, ...(section.children ?? [])])
+      .map((section) => section.id)
+      .filter((id) => id.startsWith("mis-"));
+
+  it("are there once staging switches the flag on", async () => {
+    expect(misIdsIn(await load({ mis: true }))).toContain("mis-arr-build");
+  });
+
+  it("are gone when the flag is off", async () => {
+    expect(misIdsIn(await load({ mis: false }))).toEqual([]);
+  });
+
+  // Production sets no preview config at all — absent has to mean off.
+  it("are gone when nobody has mentioned the flag", async () => {
+    expect(misIdsIn(await load({}))).toEqual([]);
+  });
+});
+
 // PAR shipped out of preview once the Lead Portal, Admin Portal, Report
-// Chain and F2F all followed the Employee Portal over — see
-// docs/ported-apps/par-app.md. Its rail entry is unconditional now, so
-// there's nothing left to gate-test here.
+// Chain and F2F all followed the Employee Portal over. Its rail entry is
+// unconditional now, so there's nothing left to gate-test here.
 describe("PAR's People Ops rail entry", () => {
   it("is always present", async () => {
     const { PEOPLE_OPS_SECTIONS } = await load();
@@ -175,6 +199,38 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(keys(PERSPECTIVES)).toContain("infra");
       expect(keys(reachablePerspectives())).toContain("infra");
       expect(findPerspectiveByPath("/infra")?.key).toBe("infra");
+    });
+  });
+
+  // Engineering is the home of Product Download Stats. Same preview contract
+  // as Infra: absent means off, so the waffle, favourites, and landing choices
+  // — all of which read this registry — cannot offer it early.
+  describe("the Engineering perspective", () => {
+    it("is absent from the registry when the preview flag is off", async () => {
+      const { PERSPECTIVES, reachablePerspectives } = await load({ engineering: false });
+      expect(keys(PERSPECTIVES)).not.toContain("engineering");
+      expect(keys(reachablePerspectives())).not.toContain("engineering");
+    });
+
+    it("is absent on an absent flag, not only on an explicit false", async () => {
+      const { PERSPECTIVES } = await load();
+      expect(keys(PERSPECTIVES)).not.toContain("engineering");
+    });
+
+    it("lands on Product Download Stats Overview when the preview flag is on", async () => {
+      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load({
+        engineering: true,
+      });
+      expect(keys(PERSPECTIVES)).toContain("engineering");
+      expect(keys(reachablePerspectives())).toContain("engineering");
+      const engineering = findPerspectiveByPath("/engineering");
+      expect(engineering?.label).toBe("Engineering");
+      const labels = (engineering?.sections ?? []).flatMap((section) => [
+        section.label,
+        ...(section.children ?? []).map((child) => child.label),
+      ]);
+      expect(labels).toContain("Product Download Stats");
+      expect(labels).toContain("Overview");
     });
   });
 });

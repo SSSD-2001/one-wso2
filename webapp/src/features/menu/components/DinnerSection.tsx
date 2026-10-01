@@ -31,9 +31,8 @@ import WindowNotice from "./WindowNotice";
 // visible at any hour. The standalone app returned early outside the window and
 // took the order summary with it, so you could not even see what you had ordered.
 //
-// Cancelling stays inside the window by decision: the server would allow it at
-// any time, but the kitchen's window is the point of the rule. See
-// docs/ported-apps/menu-app.md §7 for both decisions.
+// Cancelling stays inside the window by decision: the kitchen's window is the
+// point of the rule.
 export default function DinnerSection({
   now,
   order,

@@ -35,8 +35,7 @@ const DEFAULT_PAGE_SIZE = 10;
  *
  * Ported from meet-app's Meeting History tab. Create Meeting and the Dashboard
  * are deliberately not here: scheduling still happens in the calendar add-on,
- * and the analytics screen was not part of this migration. See
- * docs/ported-apps/sales-meetings.md.
+ * and the analytics screen is not part of this one.
  */
 export default function SalesMeetingsPage() {
   const configured = isSalesBackendConfigured();

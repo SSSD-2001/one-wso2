@@ -26,10 +26,7 @@ import SubscriptionsShell from "../components/SubscriptionsShell";
 // Opt yourself in and out of the two paid staff services.
 //
 // Ported from the digiops-hr subscription-app, which until now existed only as
-// a mobile microapp — this is its first web view. The functional spec, the API
-// contract and the deliberate differences from the original are in
-// docs/ported-apps/subscription-app.md; read that rather than reconstructing
-// the rules from this file.
+// a mobile microapp — this is its first web view.
 //
 // Two things worth knowing here specifically:
 //

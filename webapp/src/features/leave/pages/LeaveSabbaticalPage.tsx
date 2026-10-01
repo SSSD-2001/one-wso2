@@ -290,7 +290,7 @@ function SabbaticalApply() {
             {SABBATICAL.apply.title}
           </Typography>
           {guideUrl && (
-            <Link href={guideUrl} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: 13 }}>
+            <Link href={guideUrl} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: 13 }}>
               {SABBATICAL.apply.userGuide}
             </Link>
           )}
@@ -401,7 +401,7 @@ function SabbaticalApply() {
                   <>
                     {SABBATICAL.apply.ackPolicyBefore}
                     {policyUrl ? (
-                      <Link href={policyUrl} target="_blank" rel="noopener" underline="hover">
+                      <Link href={policyUrl} target="_blank" rel="noopener noreferrer" underline="hover">
                         {SABBATICAL.apply.ackPolicyLink}
                       </Link>
                     ) : (

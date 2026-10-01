@@ -18,8 +18,8 @@ import { DataGrid, Tooltip } from "@wso2/oxygen-ui";
 
 // Ports source's own CustomTable toolbar (Columns/Filter/Export, plus
 // sorting and per-type filter editors it hand-rolls elsewhere) as MUI X
-// DataGrid's built-in equivalents — see docs/ported-apps/promotion-app.md's
-// own deviation entry. Same pattern as PAR's ParGridToolbarWithExport.
+// DataGrid's built-in equivalents. Same pattern as PAR's
+// ParGridToolbarWithExport.
 // Every Functional Lead Portal grid gets Export (unlike PAR's default,
 // withheld pattern): source itself offers export on all four of its own
 // tabs here, unconditionally.

@@ -19,8 +19,6 @@
 // Every key is scoped to the signed-in subject so switching accounts in one tab
 // cannot serve the previous user's meetings from cache — the list is filtered
 // by the caller's own access, so the rows themselves are user-specific.
-//
-// See docs/ported-apps/sales-meetings.md §5 for the contract.
 
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";

@@ -40,10 +40,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 
 // My Team — a lead's reporting chain.
 //
-// Ported from people-app. The full specification, including every deliberate
-// difference from the original and a hand-executable test checklist, is in
-// docs/ported-apps/my-team.md. Read that rather than reconstructing the rules
-// from here.
+// Ported from people-app.
 //
 // Two things worth knowing at this level:
 //

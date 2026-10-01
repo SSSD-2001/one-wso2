@@ -14,9 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates } from "./parLegacyHistory";
+import { deriveLegacyCycleDates, deriveLegacyRatingFromScore } from "./parLegacyHistory";
 import type { ParCycle, ParEmployee, ParLegacyHistory } from "../api/types";
-import type { ParLegacyHistoryByEmail } from "../api/useLeadHistory";
+import type { ParLegacyHistoryByEmail, ParRatingByEmail } from "../api/useLeadHistory";
 
 export interface MergedCycleOption {
   key: string;
@@ -82,6 +82,12 @@ export function buildMergedCycleOptions(
   });
 }
 
+// A synthetic ParEmployee, not a real report — the "show everyone" row
+// prepended to the Employee dropdown's options in
+// ParLeadEmployeeHistoryTab.tsx. `workEmail` is a sentinel no real
+// employee can have.
+export const ALL_EMPLOYEES_OPTION: ParEmployee = { employeeName: "All Employees", workEmail: "__all_employees__" };
+
 // Ports EmployeeHistoryView.tsx's own employeesWithCycleData +
 // filteredEmployees: which of the lead's reports show up in the employee
 // picker for the currently selected cycle, narrowed further by a search
@@ -104,6 +110,12 @@ export function filterEmployeesForCycle(
 
   const inScopeEmployees = employees.filter((employee) => employee.workEmail !== selfEmail && inScope(employee.workEmail));
 
+  // "All Employees" was picked from the dropdown itself, not typed —
+  // filtering against that literal label would return nothing.
+  if (searchTerm === ALL_EMPLOYEES_OPTION.employeeName) {
+    return inScopeEmployees;
+  }
+
   // MUI Autocomplete resets inputValue to the selected option's own label on
   // selection — filtering literally against that string would then match
   // nothing. EmployeeHistoryView.tsx's own filteredEmployees special-cases
@@ -116,4 +128,68 @@ export function filterEmployeesForCycle(
   return inScopeEmployees.filter(
     (employee) => employee.employeeName.toLowerCase().includes(term) || employee.workEmail.toLowerCase().includes(term),
   );
+}
+
+export interface EmployeeCycleRating {
+  rating: string | null;
+  special: string | null;
+  hasRecord: boolean;
+  isLoading: boolean;
+  // A fetch failure (403/500/...), distinct from "no record" (404) — the
+  // row can't tell those apart from hasRecord alone, so callers need to
+  // show this as its own state rather than a silent "No record".
+  isError: boolean;
+}
+
+// One row's rating in ParLeadEmployeeHistoryTab.tsx's "all employees" table.
+// "NOT_ASSIGNED" reads as no rating everywhere else it's shown, so it's
+// normalized to null here too.
+export function resolveEmployeeCycleRating(
+  employee: ParEmployee,
+  isRealCycle: boolean,
+  legacyCycleName: string | undefined,
+  legacyByEmail: ParLegacyHistoryByEmail,
+  ratingByEmail: ParRatingByEmail,
+  isRatingLoadingByEmail: Record<string, boolean>,
+  isRatingErrorByEmail: Record<string, boolean>,
+): EmployeeCycleRating {
+  if (isRealCycle) {
+    const record = ratingByEmail[employee.workEmail];
+    return {
+      rating: record?.parRating && record.parRating !== "NOT_ASSIGNED" ? record.parRating : null,
+      special: record?.parSpecialRating && record.parSpecialRating !== "NOT_ASSIGNED" ? record.parSpecialRating : null,
+      hasRecord: Boolean(record),
+      isLoading: isRatingLoadingByEmail[employee.workEmail] ?? false,
+      isError: isRatingErrorByEmail[employee.workEmail] ?? false,
+    };
+  }
+  const record = legacyCycleName
+    ? legacyByEmail[employee.workEmail]?.find((r) => r.cycleName === legacyCycleName)
+    : undefined;
+  if (!record) return { rating: null, special: null, hasRecord: false, isLoading: false, isError: false };
+  const derived = deriveLegacyRatingFromScore(record.managerScoreCode);
+  const rating = record.overallRating ?? derived.rating;
+  const special = record.overallSpecialRating ?? derived.special;
+  return {
+    rating: rating && rating !== "NOT_ASSIGNED" ? rating : null,
+    special: special && special !== "NOT_ASSIGNED" ? special : null,
+    hasRecord: true,
+    isLoading: false,
+    isError: false,
+  };
+}
+
+// A current report may have moved teams since a past cycle — restores the
+// scoping the old participants?leadEmail= fetch enforced, checked against
+// data already fetched for the table. A still-loading or absent record
+// stays visible.
+export function filterOwnedByLead(
+  employees: ParEmployee[],
+  ratingByEmail: ParRatingByEmail,
+  callerEmail: string | undefined,
+): ParEmployee[] {
+  return employees.filter((employee) => {
+    const record = ratingByEmail[employee.workEmail];
+    return !record || record.parLeadEmail === callerEmail;
+  });
 }

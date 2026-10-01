@@ -37,10 +37,7 @@ import MenuShell from "../components/MenuShell";
 
 // The cafeteria screen: today's menu, lunch feedback, and dinner on demand.
 //
-// Ported from the standalone menu app. The full functional specification — every
-// rule, the API contract, a hand-executable test checklist, and every deliberate
-// difference from the original — is in docs/ported-apps/menu-app.md. Read that
-// rather than reconstructing the rules from this file.
+// Ported from the standalone menu app.
 //
 // Two things worth knowing here specifically:
 //

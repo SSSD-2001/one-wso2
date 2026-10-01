@@ -75,6 +75,7 @@ export const EVENT_FORMAT_OPTS: { id: EventFormat; label: string }[] = [
 ]
 
 export const MAX_IMAGE_MB = 15
+// TODO: move this link out of the code, into runtime config (public/config.js).
 export const BRAND_KIT_URL = 'https://drive.google.com/drive/folders/1Mtm2MnPQj6yDSW5wDGpXfJ6fDAh_wI-f?usp=drive_link'
 
 export function resolveColor(textColors: TextColors, key: TextColorField): string {

@@ -15,15 +15,13 @@
 // under the License.
 
 // Reads the people-app backend's employee directory (GET
-// /employees/basic-info, people-ops-suite PR #345) — every Active and Marked
+// /employees/basic-info) — every Active and Marked
 // leaver employee, each row carrying its own managerEmail. This is now Org
 // Chart's only data source: the standalone org-chart backend this feature
 // originally targeted isn't available, and this endpoint's flat, complete
 // shape is a better fit anyway — the whole tree builds client-side
 // from one response (see util/buildOrgTree.ts) instead of a fetch per
 // manager.
-//
-// See docs/ported-apps/org-chart.md for the contract.
 
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
@@ -38,8 +36,7 @@ export function isOrgChartConfigured(): boolean {
 }
 
 // A 403 is a settled "you're not in the authorised group", not a transient
-// failure — matches the backend's all-or-nothing access model (see
-// docs/ported-apps/org-chart.md §4).
+// failure — matches the backend's all-or-nothing access model.
 function directoryRetry(failureCount: number, error: unknown): boolean {
   if (error instanceof HttpError && error.status === 403) return false;
   return defaultQueryRetry(failureCount, error);

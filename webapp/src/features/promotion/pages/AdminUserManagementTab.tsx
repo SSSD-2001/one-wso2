@@ -19,7 +19,7 @@
 // Functional Lead ACL), not the whole employee directory. Add/edit,
 // activate/deactivate, delete, transfer a lead's account to a different
 // employee, and bulk-sync the user list from a Google Sheet.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, IconButton, InputAdornment, Skeleton, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { PlusIcon, RefreshCwIcon, SearchIcon, TriangleAlertIcon, UploadIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
@@ -32,6 +32,8 @@ import UserRow from "../components/UserRow";
 import UserFormDialog from "../components/UserFormDialog";
 import TransferAccessDialog from "../components/TransferAccessDialog";
 import GoogleSheetLinkDialog from "../components/GoogleSheetLinkDialog";
+import PromotionFeedbackSnackbar from "../components/PromotionFeedbackSnackbar";
+import { usePromotionFeedback } from "../util/usePromotionFeedback";
 import PromotionSyncStatusLabel from "../components/PromotionSyncStatusLabel";
 import PromotionEmptyState from "../components/PromotionEmptyState";
 import type { PromotionUser } from "../api/types";
@@ -53,11 +55,22 @@ export default function AdminUserManagementTab() {
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const { feedback, notifySuccess, notifyError, close } = usePromotionFeedback();
 
-  // Once a running sync settles to SUCCESS, refetch the list — source's own
-  // getAllUsers re-dispatch on the same transition.
+  // Once a running sync settles, refetch the list on SUCCESS and notify on
+  // either outcome. Ref-tracked off a "just transitioned" edge, not the raw
+  // level, so this fires once per sync rather than on every re-render while
+  // settled.
+  const lastSyncState = useRef(sync.state);
   useEffect(() => {
-    if (sync.state === "SUCCESS") void users.refetch();
+    if (lastSyncState.current === sync.state) return;
+    lastSyncState.current = sync.state;
+    if (sync.state === "SUCCESS") {
+      void users.refetch();
+      notifySuccess("Successfully synchronized the user data.");
+    } else if (sync.state === "ERROR") {
+      notifyError("Unable to synchronize the user data. Please contact the app support.");
+    }
   }, [sync.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const allUsers = users.data?.users.users ?? [];
@@ -69,6 +82,7 @@ export default function AdminUserManagementTab() {
   return (
     <>
       <ConfirmationDialog content={confirmContent} onClose={() => setConfirmContent(null)} />
+      <PromotionFeedbackSnackbar feedback={feedback} onClose={close} />
       <UserFormDialog
         open={formTarget !== null}
         editingUser={formTarget === "insert" ? null : formTarget}
@@ -82,7 +96,9 @@ export default function AdminUserManagementTab() {
         title="Google Sheet User Data Synchronization"
         onClose={() => setSyncDialogOpen(false)}
         onSubmit={(url) => {
-          syncUsers.mutate(url);
+          syncUsers.mutate(url, {
+            onError: (error) => notifyError(`Unable to start the sync. ${humanizeHttpError(error)}`),
+          });
           setSyncDialogOpen(false);
         }}
       />

@@ -142,6 +142,14 @@ export const LEGAL_OPINION_CATEGORY_ID = "3";
 export const LEGAL_COMMENT_QUESTION_ID = 80;
 export const LEGAL_APPROVAL_QUESTION_ID = 45;
 export const FILE_UPLOAD_LIMIT = 5;
+// Matches the "PDF, JPEG, PNG, JPG" hint shown next to every upload zone in
+// this feature. Checked in useUploadPartnerFile itself, not just the
+// input's `accept` attribute (a picker hint only — drag-and-drop bypasses
+// it), so every caller of that hook applies the same client-side check
+// without duplicating it. This is a UX guard, not an authorization
+// boundary — it narrows what the picker/dropzone will hand off, but the
+// backend is the actual authority on what it accepts.
+export const ALLOWED_FILE_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png"]);
 export const LEGAL_CHOOSE_FILE_SUBQUESTION_ID = 104;
 export const FINANCE_CHOOSE_FILE_SUBQUESTION_ID = 100;
 export const CREATOR_COMMENT_QUESTION_ID = 42;

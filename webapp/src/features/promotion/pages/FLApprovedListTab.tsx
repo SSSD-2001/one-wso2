@@ -24,6 +24,7 @@ import { useState } from "react";
 import { Box, DataGrid, Divider, IconButton, Skeleton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, InboxIcon, RefreshCwIcon, TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
+import { useActivePromotionCycle } from "../api/usePromotionCycle";
 import { usePromotionRequests } from "../api/usePromotionRequests";
 import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "../components/PromotionEmptyState";
@@ -35,8 +36,8 @@ import type { PromotionRequestFull } from "../api/types";
 // Source's own transformFLState — the Promotion Board's decision, in the
 // functional lead's own terms (FL_APPROVED just means "still with the
 // board"). A TIME_BASED request never reaches the board at all (the Lead
-// Portal's own submit already finalizes it — docs/ported-apps/
-// promotion-app.md §6), so it reads "N/A" here rather than a real status.
+// Portal's own submit already finalizes it), so it reads "N/A" here rather
+// than a real status.
 function boardStatusLabel(request: PromotionRequestFull): string {
   if (request.promotionType === "TIME_BASED") return "N/A";
   if (request.status === "FL_APPROVED") return "Pending";
@@ -50,7 +51,11 @@ const ROW_COLOR_SX = {
 };
 
 export default function FLApprovedListTab() {
-  const requests = usePromotionRequests({ statusArray: ["FL_APPROVED", "APPROVED", "REJECTED"], enableBuFilter: true });
+  const cycle = useActivePromotionCycle();
+  const requests = usePromotionRequests(
+    { statusArray: ["FL_APPROVED", "APPROVED", "REJECTED"], enableBuFilter: true, cycleId: cycle.cycle?.id },
+    !cycle.isPending && Boolean(cycle.cycle),
+  );
   const [viewingRequest, setViewingRequest] = useState<PromotionRequestFull | null>(null);
 
   const rows = requests.data?.promotionRequests ?? [];
@@ -89,7 +94,13 @@ export default function FLApprovedListTab() {
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => void requests.refetch()}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              if (!cycle.isError && cycle.cycle) void requests.refetch();
+              else void cycle.refetch();
+            }}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>
@@ -106,8 +117,14 @@ export default function FLApprovedListTab() {
         )}
       </Box>
 
-      {requests.isPending ? (
+      {cycle.isPending || (Boolean(cycle.cycle) && requests.isPending) ? (
         <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1 }} />
+      ) : cycle.isError ? (
+        <PromotionEmptyState
+          icon={<TriangleAlertIcon size={28} />}
+          tone="error"
+          message={`Unable to load the promotion cycle. ${humanizeHttpError(cycle.error)}`}
+        />
       ) : requests.isError ? (
         <PromotionEmptyState
           icon={<TriangleAlertIcon size={28} />}

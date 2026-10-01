@@ -24,8 +24,7 @@
 // strip showing only one tab. Source itself defines two more tabs
 // (Promotion Status, Applications History) but both are commented out in
 // its own render AND routing (promotion.tsx:116-135) — dead code, not
-// merely hidden — so this port doesn't resurrect them either. See
-// docs/ported-apps/promotion-app.md.
+// merely hidden — so this port doesn't resurrect them either.
 //
 // This is the fuller, dedicated equivalent of promotion-app's own screen.
 // It reads the same two endpoints as the My-page profile card's "Last

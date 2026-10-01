@@ -56,9 +56,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // — three breakdowns of the same request list, from each stage's own point
 // of view (Promotion Board / Functional Lead / overall). CloseStat, the
 // sibling component source also imports here, is never actually rendered
-// in source's own JSX (confirmed dead code — see
-// docs/ported-apps/promotion-app.md's own deviation entry) and isn't
-// ported.
+// in source's own JSX (confirmed dead code) and isn't ported.
 export default function PromotionCycleStatsPanel({
   loading,
   data,

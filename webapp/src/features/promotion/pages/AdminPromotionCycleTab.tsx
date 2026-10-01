@@ -19,28 +19,31 @@
 // when one is open), its own stats, and the Notification Hub drill-in.
 // Source drives the home/notification-hub split with a `subView` query
 // param; this uses local state instead — a two-pane drill-down within one
-// tab, not a linkable top-level tab the way the portal's own five tabs are
-// (see docs/ported-apps/promotion-app.md's own deviation entry).
+// tab, not a linkable top-level tab the way the portal's own five tabs are.
 import { useState } from "react";
 import { Box, Breadcrumbs, Button, Grid, IconButton, Link, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { BellIcon, RefreshCwIcon, TriangleAlertIcon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useActivePromotionCycle } from "../api/usePromotionCycle";
-import { useEndPromotionCycle } from "../api/useAdminPromotionCycle";
+import { useCreatePromotionCycle, useEndPromotionCycle } from "../api/useAdminPromotionCycle";
 import { usePromotionRequests } from "../api/usePromotionRequests";
 import PromotionCycleCreateForm from "../components/PromotionCycleCreateForm";
 import PromotionCycleStatsPanel from "../components/PromotionCycleStatsPanel";
 import NotificationHubPanel from "../components/NotificationHubPanel";
 import PromotionEmptyState from "../components/PromotionEmptyState";
+import PromotionFeedbackSnackbar from "../components/PromotionFeedbackSnackbar";
+import { usePromotionFeedback } from "../util/usePromotionFeedback";
 import { formatDate } from "../util/promotionHistory";
 
 export default function AdminPromotionCycleTab() {
   const cycle = useActivePromotionCycle();
   const requests = usePromotionRequests({ cycleId: cycle.cycle?.id }, Boolean(cycle.cycle));
+  const createCycle = useCreatePromotionCycle();
   const endCycle = useEndPromotionCycle();
   const [view, setView] = useState<"home" | "notifications">("home");
   const [confirmEnd, setConfirmEnd] = useState<ConfirmationContent | null>(null);
+  const { feedback, notifySuccess, notifyError, close } = usePromotionFeedback();
 
   if (cycle.isPending) return <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1 }} />;
   if (cycle.isError) {
@@ -58,10 +61,17 @@ export default function AdminPromotionCycleTab() {
   return (
     <>
       <ConfirmationDialog content={confirmEnd} onClose={() => setConfirmEnd(null)} />
+      <PromotionFeedbackSnackbar feedback={feedback} onClose={close} />
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => void cycle.refetch()}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              void cycle.refetch();
+              void requests.refetch();
+            }}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>
@@ -76,12 +86,20 @@ export default function AdminPromotionCycleTab() {
       </Box>
 
       {view === "notifications" ? (
-        <NotificationHubPanel requests={rows} loading={requests.isPending} />
+        <NotificationHubPanel cycle={cycle.cycle ?? null} requests={rows} loading={requests.isPending} />
       ) : !cycle.cycle ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, py: 4 }}>
           <Typography variant="h5">Active promotion cycle not found</Typography>
           <Box sx={{ width: "100%", maxWidth: 640 }}>
-            <PromotionCycleCreateForm />
+            <PromotionCycleCreateForm
+              creating={createCycle.isPending}
+              onCreate={(payload) =>
+                createCycle.mutate(payload, {
+                  onSuccess: () => notifySuccess("Promotion cycle created."),
+                  onError: (error) => notifyError(`Unable to create the promotion cycle. ${humanizeHttpError(error)}`),
+                })
+              }
+            />
           </Box>
         </Box>
       ) : (
@@ -118,7 +136,11 @@ export default function AdminPromotionCycleTab() {
                     text: "This will close the currently open promotion cycle. This action cannot be undone.",
                     confirmLabel: "End Cycle",
                     confirmAction: () => {
-                      if (cycle.cycle) endCycle.mutate(cycle.cycle.id);
+                      if (!cycle.cycle) return;
+                      endCycle.mutate(cycle.cycle.id, {
+                        onSuccess: () => notifySuccess("Promotion cycle ended."),
+                        onError: (error) => notifyError(`Unable to end the promotion cycle. ${humanizeHttpError(error)}`),
+                      });
                     },
                   })
                 }

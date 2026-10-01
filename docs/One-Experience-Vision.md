@@ -368,4 +368,4 @@ As the digital foundation matures, the balance shifts from *you operating tools*
 
 ---
 
-**Sources:** [One WSO2 App Experience Brainstorming Session — Notes by Gemini (Jun 26, 2026)](https://docs.google.com/document/d/1IVJXZixYl4VfcINRCtFfwd94M1wE7TUn5eHoDEsgexc/edit) · [WSO2 Brand Guidelines](https://wso2.com/about/brand) · [WSO2 — Agentic Enterprise](https://wso2.com/)
+**Sources:** [WSO2 Brand Guidelines](https://wso2.com/about/brand) · [WSO2 — Agentic Enterprise](https://wso2.com/)

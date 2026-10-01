@@ -71,7 +71,7 @@ describe("People Ops rail sections", () => {
     // Org Chart is one deliberate exception — same people-app backend, a
     // different endpoint with its own access model (any employee in that
     // endpoint's configured group, not a people-app admin privilege). See
-    // the comment above PEOPLE_OPS_SECTIONS and docs/ported-apps/org-chart.md §4.
+    // the comment above PEOPLE_OPS_SECTIONS.
     //
     // The two Subscriptions screens are the others, and for a different
     // reason worth keeping straight from Org Chart's. They do not talk to
@@ -81,7 +81,7 @@ describe("People Ops rail sections", () => {
     // admin is not a commute or LaaS admin, so it would advertise the manage
     // screen to the wrong people AND hide it from the right ones. The rail and
     // the overview card both route these ids through useSubscriptionGate
-    // instead; see SUBSCRIPTION_ITEM_IDS and docs/ported-apps/subscription-app.md §5.
+    // instead; see SUBSCRIPTION_ITEM_IDS.
     //
     // Note what this leaves unguarded: nothing checks here that those two ids
     // ARE in SUBSCRIPTION_ITEM_IDS, so the next assertion does that — dropping
@@ -111,6 +111,12 @@ describe("People Ops rail sections", () => {
     // out: gated on isHrAdmin OR isFunctionalLead, the only two-role gate
     // among this section's children (see perspectives.ts's own comment
     // above it).
+    //
+    // banking-admin is the same shape of exception as the PAR/Promotion ones
+    // above: gated on the banking backend's own GET /employee-privileges via
+    // useBankingAdminAccess (dispatched in usePerspectiveVisibility), unrelated
+    // to people-app's "admin" capability — see perspectives.ts's own comment
+    // above BANKING_ADMIN_SECTION.
     const NOT_ADMIN_GATED = new Set([
       "people-org-chart",
       "people-subscriptions-mine",
@@ -123,6 +129,7 @@ describe("People Ops rail sections", () => {
       "promotion-board-portal",
       "promotion-admin-portal",
       "promotion-cycle-history",
+      "banking-admin",
     ]);
     const live = PEOPLE_OPS_SECTIONS.flatMap((s) => [s, ...(s.children ?? [])]).filter(
       (s) => s.path,

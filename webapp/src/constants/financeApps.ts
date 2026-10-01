@@ -29,12 +29,14 @@
 
 import {
   CreditCardIcon,
+  DatabaseIcon,
   LayoutDashboardIcon,
   ReceiptTextIcon,
   StethoscopeIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { CC_PATH } from "@features/finance/cc/ccPaths";
 import { FINANCE_OVERVIEW_PATH } from "@features/finance/overview/financeOverviewPaths";
+import { masterDataPaths } from "@features/finance/masterdata/masterDataPaths";
 import type { MenuApp } from "@constants/appMenu";
 
 /**
@@ -138,6 +140,28 @@ export const FINANCE_PERSPECTIVE_APPS: readonly MenuApp[] = [
       { id: "cc-settings", label: "Settings", desc: "Upload and reconcile bank statements (finance).", requires: ["admin"], path: `${CC_PATH}/settings` },
     ],
   },
+  {
+    // The reference data the other finance apps are keyed against. Its own
+    // entry rather than a Settings tab inside one of them: all four tables
+    // are shared — an expense type is used by both Expense Claims and Credit
+    // Card Expenses — so filing it under either one would be arbitrary.
+    key: "finance-master-data",
+    name: "Master Data",
+    icon: DatabaseIcon,
+    purpose: "Maintain the subsidiaries, departments, expense types and cards the finance apps refer to.",
+    // `requires: ["admin"]` on all four: this is finance-maintained reference
+    // data, same gate as cc Settings. It only forces useFinanceGate to answer
+    // for the id — see its master-data case, which also checks the
+    // "finance-master-data" preview flag (previewFeatures.ts) before `admin`,
+    // so this stays hidden in an environment until that flag is turned on
+    // there.
+    items: [
+      { id: "master-data-subsidiaries", label: "Subsidiaries", desc: "WSO2 legal entities and their tax codes.", requires: ["admin"], path: masterDataPaths.subsidiaries },
+      { id: "master-data-departments", label: "Departments", desc: "Departments, engagement codes and their GL codes.", requires: ["admin"], path: masterDataPaths.departments },
+      { id: "master-data-expense-types", label: "Expense Types", desc: "The expense catalogue and the engagements each type is valid for.", requires: ["admin"], path: masterDataPaths.expenseTypes },
+      { id: "master-data-credit-cards", label: "Credit Cards", desc: "The corporate card register and who approves each card's spend.", requires: ["admin"], path: masterDataPaths.creditCards },
+    ],
+  },
 ];
 
 /** Every finance-domain app, wherever it is surfaced. */
@@ -177,6 +201,7 @@ export const FINANCE_EYEBROW = {
   // now, and their own titles say which type is being filed.
   claims: eyebrowFor("claims"),
   cc: eyebrowFor("cc"),
+  masterData: eyebrowFor("finance-master-data"),
   // A literal rather than eyebrowFor(...): the OPD dashboard sits behind a
   // preview flag, and with it off the lookup would fall back to the generic
   // "Finance" chip — wrong for a route still reachable directly by URL.

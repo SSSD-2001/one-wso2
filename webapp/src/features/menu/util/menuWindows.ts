@@ -19,8 +19,6 @@
 // Windows are values and the checks are functions of `(now, ...)`, so every rule
 // below is testable at any instant without faking a clock. The one place a real
 // clock is read is useCafeteriaClock.
-//
-// See docs/ported-apps/menu-app.md §3 for the rules these encode.
 
 import {
   cafeteriaMoment,

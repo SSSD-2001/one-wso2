@@ -20,8 +20,6 @@
 // `modules/people/types.bal`, and the record returned by its `get meta-info`
 // resource. Field names below mirror the JSON exactly; the domain types beside
 // them are what the UI actually works with.
-//
-// See docs/ported-apps/menu-app.md §5 for the contract.
 
 import {
   CookieIcon,

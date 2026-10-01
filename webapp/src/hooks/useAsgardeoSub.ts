@@ -195,52 +195,84 @@ export function useAsgardeoSub(): { state: SubState; retry: () => void } {
   return { state, retry };
 }
 
-// Folds a failed identity resolution into a query's own result shape, so a
-// page sees a real error (with a retry path) instead of an indefinitely
-// disabled query — `enabled: ... && Boolean(userSub)` never flips true, so
-// the query itself never runs and never reports an error either, leaving
-// the page stuck showing an empty/loading state forever. Every sub-keyed
-// query (leave, finance backends, ...) should route its result through
-// this before returning it — this generalizes the pattern useMeProfile
-// introduced for its own single query.
+// Folds identity resolution into a query's own result shape, so a page sees
+// a real loading or error state (with a retry path, on error) instead of an
+// indefinitely disabled query — `enabled: ... && Boolean(userSub)` never
+// flips true while identity is unresolved, so the query itself never runs.
+// Every sub-keyed query (leave, finance backends, ...) should route its
+// result through this before returning it — this generalizes the pattern
+// useMeProfile introduced for its own single query.
 //
-// Identity errors always take precedence over whatever error state the
-// query itself happens to carry. Don't special-case query.isError here —
-// React Query's real refetch() bypasses `enabled` (see the note on
-// useMeProfile above), so a disabled query CAN end up with a real isError
-// from some earlier forced refetch attempt (a stray double-click, the
-// devtools' manual refetch, ...) even while identity is unresolved. If we
-// deferred to that instead, the page would show whatever unrelated error
-// that fetch produced, with `.refetch` pointing at React Query's real
-// refetch — which just re-fires the same doomed queryFn instead of ever
-// retrying identity, permanently shadowing the one error that's actually
-// recoverable. Once identity resolves (`enabled` flips true), the real
-// query state takes over normally.
+// Two branches, in order of precedence:
 //
-// The synthetic result doesn't match React Query's discriminated union
+//  1. Identity failed — synthesize a real, actionable error (unchanged from
+//     before). Takes precedence over whatever error state the query itself
+//     happens to carry: React Query's real refetch() bypasses `enabled`
+//     (see the note on useMeProfile above), so a disabled query CAN end up
+//     with a real isError from some earlier forced refetch attempt (a stray
+//     double-click, the devtools' manual refetch, ...) even while identity
+//     is unresolved. Deferring to that instead would show whatever
+//     unrelated error that fetch produced, with `.refetch` pointing at
+//     React Query's real refetch — which just re-fires the same doomed
+//     queryFn instead of ever retrying identity, permanently shadowing the
+//     one error that's actually recoverable.
+//
+//  2. Identity is still resolving AND the query has no data of its own yet
+//     (`isPending`) — synthesize a loading state. Without this, a disabled
+//     query with no cached data reports `isLoading: false` in React Query
+//     v5 (`isLoading` there is `isPending && isFetching`, and a disabled
+//     query is never `isFetching`), so every caller of this hook — CC, OPD
+//     and Expense Claims user-info alike — briefly read as "settled, and
+//     access denied" during the gap between mount and identity resolving,
+//     before the real query ever gets a chance to run. `FinanceOverviewPage`
+//     and every finance rail gate compute `isResolving` from these hooks'
+//     `isLoading`, so that gap read as the whole Finance section flashing
+//     "not available for your role" (or its skeleton) before settling on
+//     the real answer a moment later — reported as the app "continuously
+//     refreshing" or "flickering". `isPending` (not `isSuccess`/`isError`)
+//     is the guard: once the query has resolved for real at least once, a
+//     later identity re-check (a token refresh cycle, say) must not hide
+//     already-known-good data or a real error behind a fresh skeleton.
+//
+// The synthetic results don't match React Query's discriminated union
 // exactly (the four *Result variants have exclusive boolean flags), so we
 // cast through unknown — callers only read isError + error + isPending +
-// isLoading + isFetching + isSuccess + refetch, and this shape sets those
+// isLoading + isFetching + isSuccess + refetch, and both shapes set those
 // consistently.
 export function foldIdentityError<TData>(
   query: UseQueryResult<TData, Error>,
   identityState: SubState,
   retryIdentity: () => void,
 ): UseQueryResult<TData, Error> {
-  if (identityState.status !== "error") return query;
-  const synthetic = {
-    ...query,
-    isError: true,
-    isPending: false,
-    isLoading: false,
-    isSuccess: false,
-    isFetching: false,
-    status: "error" as const,
-    error: new Error(identityState.message),
-    refetch: (async () => {
-      retryIdentity();
-      return query;
-    }) as typeof query.refetch,
-  };
-  return synthetic as unknown as UseQueryResult<TData, Error>;
+  if (identityState.status === "error") {
+    const synthetic = {
+      ...query,
+      isError: true,
+      isPending: false,
+      isLoading: false,
+      isSuccess: false,
+      isFetching: false,
+      status: "error" as const,
+      error: new Error(identityState.message),
+      refetch: (async () => {
+        retryIdentity();
+        return query;
+      }) as typeof query.refetch,
+    };
+    return synthetic as unknown as UseQueryResult<TData, Error>;
+  }
+  if (identityState.status === "loading" && query.isPending) {
+    const synthetic = {
+      ...query,
+      isError: false,
+      isPending: true,
+      isLoading: true,
+      isSuccess: false,
+      isFetching: true,
+      status: "pending" as const,
+      fetchStatus: "fetching" as const,
+    };
+    return synthetic as unknown as UseQueryResult<TData, Error>;
+  }
+  return query;
 }

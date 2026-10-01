@@ -20,7 +20,7 @@
 // (once populated) a monitoring grid with a per-recommendation "declined
 // reason" edit. No approve/reject here — that's the Functional Lead/
 // Promotion Board portals' own concern; this tab only imports and audits.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -49,8 +49,11 @@ import PromotionEmptyState from "../components/PromotionEmptyState";
 import { PromotionGridToolbar } from "../components/PromotionGridToolbar";
 import DeclinedReasonDialog, { type DeclinedReasonTarget } from "../components/DeclinedReasonDialog";
 import GoogleSheetLinkDialog from "../components/GoogleSheetLinkDialog";
+import PromotionFeedbackSnackbar from "../components/PromotionFeedbackSnackbar";
+import { usePromotionFeedback } from "../util/usePromotionFeedback";
 import PromotionSyncStatusLabel from "../components/PromotionSyncStatusLabel";
 import { encodePromotionText } from "../util/promotionRichText";
+import { promotionRequestColor } from "../util/promotionStatus";
 import { GRID_NO_POINTER_FOCUS_SX } from "@utils/dataGridSx";
 import type { PromotionRecommendation, PromotionRequestFull } from "../api/types";
 
@@ -59,8 +62,8 @@ const LEAD_STATUS_SX: Record<string, { label: string; color: string }> = {
   SUBMITTED: { label: "Approved", color: "#36B37E" },
 };
 
-function firstDeclinedRecommendation(row: PromotionRequestFull): PromotionRecommendation | undefined {
-  return row.recommendations.find((r) => r.recommendationStatus === "DECLINED");
+function declinedRecommendations(row: PromotionRequestFull): PromotionRecommendation[] {
+  return row.recommendations.filter((r) => r.recommendationStatus === "DECLINED");
 }
 
 export default function AdminTimeBasedPromotionsTab() {
@@ -78,17 +81,35 @@ export default function AdminTimeBasedPromotionsTab() {
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<DeclinedReasonTarget | null>(null);
   const [editingRecommendation, setEditingRecommendation] = useState<PromotionRecommendation | null>(null);
+  const { feedback, notifySuccess, notifyError, close } = usePromotionFeedback();
 
-  // Once a running sync settles to SUCCESS, refetch the list — source's own
-  // getTimeBasedPromotion re-dispatch on the same transition.
+  // Refetch the list once a running sync settles to SUCCESS. Ref-tracked so
+  // this fires once per settle, not on every re-render while already settled.
+  const lastSyncState = useRef(sync.state);
   useEffect(() => {
-    if (sync.state === "SUCCESS") void requests.refetch();
+    if (lastSyncState.current === sync.state) return;
+    lastSyncState.current = sync.state;
+    if (sync.state === "SUCCESS") {
+      void requests.refetch();
+      notifySuccess("Successfully synchronized time-based promotions.");
+    } else if (sync.state === "ERROR") {
+      notifyError("Unable to synchronize time-based promotions. Please contact the app support.");
+    }
   }, [sync.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = requests.data?.promotionRequests ?? [];
 
   const columns: DataGrid.GridColDef<PromotionRequestFull>[] = [
     ...basePromotionRequestColumns(),
+    {
+      field: "status",
+      headerName: "Promotion Status",
+      flex: 1,
+      minWidth: 150,
+      renderCell: (params) => (
+        <Chip label={params.value} size="small" sx={{ bgcolor: promotionRequestColor(params.value), color: "white" }} />
+      ),
+    },
     {
       field: "recommendations",
       headerName: "Lead Status",
@@ -131,21 +152,25 @@ export default function AdminTimeBasedPromotionsTab() {
       filterable: false,
       disableExport: true,
       renderCell: (params) => {
-        const declined = firstDeclinedRecommendation(params.row);
-        return declined ? (
-          <Tooltip title="View / edit reason">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setEditingRecommendation(declined);
-                setEditingTarget({ key: declined.recommendationID, initialValue: declined.recommendationAdditionalComment });
-              }}
-            >
-              <EyeIcon size={16} />
-            </IconButton>
-          </Tooltip>
-        ) : (
+        const declined = declinedRecommendations(params.row);
+        return declined.length === 0 ? (
           "N/A"
+        ) : (
+          <Stack direction="row" spacing={0.5}>
+            {declined.map((rec) => (
+              <Tooltip key={rec.recommendationID} title={`View / edit reason — ${rec.leadEmail}`}>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setEditingRecommendation(rec);
+                    setEditingTarget({ key: rec.recommendationID, initialValue: rec.recommendationAdditionalComment });
+                  }}
+                >
+                  <EyeIcon size={16} />
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Stack>
         );
       },
     },
@@ -172,12 +197,17 @@ export default function AdminTimeBasedPromotionsTab() {
   return (
     <>
       <ConfirmationDialog content={confirmImport} onClose={() => setConfirmImport(null)} />
+      <PromotionFeedbackSnackbar feedback={feedback} onClose={close} />
       <GoogleSheetLinkDialog
         open={sheetDialogOpen}
         title="Insert Google Sheet Link"
+        description="Employees will be imported and assigned promotions to based on their job band."
         onClose={() => setSheetDialogOpen(false)}
         onSubmit={(url) => {
-          importPromotions.mutate(url);
+          importPromotions.mutate(url, {
+            onSuccess: () => notifySuccess("Import started."),
+            onError: (error) => notifyError(`Unable to start the import. ${humanizeHttpError(error)}`),
+          });
           setSheetDialogOpen(false);
         }}
       />
@@ -203,7 +233,9 @@ export default function AdminTimeBasedPromotionsTab() {
                 setEditingTarget(null);
                 setEditingRecommendation(null);
                 void requests.refetch();
+                notifySuccess("Declined reason updated.");
               },
+              onError: (error) => notifyError(`Unable to update the declined reason. ${humanizeHttpError(error)}`),
             },
           );
         }}
@@ -224,7 +256,7 @@ export default function AdminTimeBasedPromotionsTab() {
         // (source's own inline TODO) — kept selectable here for the same
         // reason: not reproducing it would silently drop something a real
         // admin can currently click, but confirming it is deliberately a
-        // no-op, matching source exactly (see docs/ported-apps/promotion-app.md).
+        // no-op, matching source exactly.
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, py: 4 }}>
           <Typography sx={{ fontSize: 16, fontWeight: 600 }}>
             No time-based promotions exist for this cycle yet

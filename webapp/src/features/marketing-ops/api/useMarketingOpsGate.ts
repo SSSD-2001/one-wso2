@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { describeError } from "@api/errors";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import { useMarketingOpsMe } from "./useMarketingOpsMe";
@@ -156,4 +157,10 @@ export function useMarketingOpsGate(enabled = true): MarketingOpsGate {
     errorMessage: me.isError ? describeError(me.error) : undefined,
     retry: () => void me.refetch(),
   };
+}
+
+export function marketingVisibility(gate: MarketingOpsGate): VisibilityAnswer {
+  return gate.isError
+    ? { canSee: gate.canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee: gate.canSee, resolving: gate.isResolving, retry: () => undefined };
 }

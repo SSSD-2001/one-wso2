@@ -25,8 +25,7 @@ import type { PromotionEmployeeInfoResponse } from "./types";
 // Fetches GET /employee-info?employeeWorkEmail=<email> from the digiops-hr
 // promotion app. Non-lead/non-admin users can only fetch their own record
 // (backend enforces requestedBy === employeeWorkEmail, plus a reporting-chain/
-// functional-lead-scope fallback for everyone else — see
-// docs/ported-apps/promotion-app.md).
+// functional-lead-scope fallback for everyone else).
 //
 // Skips the request entirely when ONE_WSO2_PROMOTION_BACKEND_URL isn't
 // configured — the calling component renders a "not configured" fallback.

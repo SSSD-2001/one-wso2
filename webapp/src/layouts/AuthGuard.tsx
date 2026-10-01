@@ -18,7 +18,6 @@ import { useAsgardeo } from "@asgardeo/react";
 import { useEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { Box, CircularProgress } from "@wso2/oxygen-ui";
-import { devBypassAuth } from "@config/authConfig";
 
 import {
   forgetPostLoginTarget,
@@ -48,8 +47,6 @@ export default function AuthGuard() {
   const hasPendingRedirect = pendingRedirect !== null && pendingRedirect !== currentHref;
 
   useEffect(() => {
-    if (devBypassAuth) return; // dev-only: never redirect
-
     // Scrub Asgardeo's post-logout marker before anything else reasons about
     // the URL. Routed rather than `history.replaceState` so React Router's own
     // location stays in sync. Only ever matches the sign-OUT landing, so it
@@ -81,8 +78,6 @@ export default function AuthGuard() {
       navigate(restored, { replace: true });
     }
   }, [isLoading, isSignedIn, location, currentHref, signIn, navigate]);
-
-  if (devBypassAuth) return <Outlet />;
 
   // Hold the children back while a stashed redirect is still pending. Without
   // this the child route tree mounts first, its own redirects fire from child

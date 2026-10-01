@@ -90,7 +90,7 @@ declare global {
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
-      // Base URLs for the three digiops-finance backends surfaced in the
+      // Base URLs for the digiops-finance backends surfaced in the
       // Finance perspective. Each is its own service with its own
       // /user-info + role scheme. Optional — when a URL is absent, that
       // app's screens show a "not connected" state instead of firing
@@ -98,6 +98,7 @@ declare global {
       ONE_WSO2_OPD_BACKEND_URL?: string; // opd-claims
       ONE_WSO2_CC_EXPENSES_BACKEND_URL?: string; // cc-expenses
       ONE_WSO2_EXPENSE_CLAIMS_BACKEND_URL?: string; // expense-claims
+      ONE_WSO2_FINANCE_MASTER_DATA_BACKEND_URL?: string; // finance-master-data
       // Base URL for the digiops-finance due_diligence backend — the Due
       // Diligence app, surfaced under both the Finance and Legal
       // perspectives. Same optional/"not connected" contract as the three
@@ -147,6 +148,11 @@ declare global {
       // requests. Privileges on this service (987 / 762 / 123) are not
       // people-app's.
       ONE_WSO2_INFRA_BACKEND_URL?: string;
+      // Base URL for the Product Download Stats API. Optional — when absent,
+      // Engineering Overview says it isn't connected and makes no requests.
+      // The gateway rewrites the Bearer token into the assertion that API
+      // already checks. Read at call time by the engineering feature.
+      ONE_WSO2_PRODUCT_DOWNLOAD_STATS_BACKEND_URL?: string;
       // Base URL of the Pardot UI, used to deep-link to an email template
       // after Email Workbench pushes it. Not an API — a link target.
       // Optional; defaults to https://pi.pardot.com, which is correct for
@@ -164,11 +170,6 @@ declare global {
       // ONE_WSO2_AUTH_BASE_URL by swapping the api. subdomain for
       // myaccount. (e.g. api.asgardeo.io/t/wso2 → myaccount.asgardeo.io/t/wso2).
       ONE_WSO2_ASGARDEO_MYACCOUNT_URL?: string;
-      // Dev-only escape hatch — when true AND the bundle is a Vite dev
-      // build, AuthGuard treats the user as signed in without ever calling
-      // Asgardeo. Ignored in production builds (see devBypassAuth below),
-      // so a stray true in a prod config.js can't disable auth.
-      ONE_WSO2_DEV_BYPASS_AUTH?: boolean;
       // Features built but not yet released — see @config/previewFeatures.
       // Absent or false hides the feature, so a deployment that says nothing
       // shows nothing. Typed loosely here and narrowed by `PreviewFeature` at
@@ -178,24 +179,15 @@ declare global {
   }
 }
 
-// Gate on import.meta.env.DEV so this constant folds to `false` in the
-// production bundle no matter what config.js says. Vite/esbuild replaces
-// import.meta.env.DEV with a literal `false` at build time and dead-code
-// eliminates the whole branch, so ONE_WSO2_DEV_BYPASS_AUTH becomes inert
-// in shipped code even if an operator accidentally sets it to true.
-export const devBypassAuth =
-  import.meta.env.DEV && window.config?.ONE_WSO2_DEV_BYPASS_AUTH === true;
-
-function readConfig(key: keyof Window["config"], fallback = ""): string {
+function readConfig(key: keyof Window["config"]): string {
   const value = window.config?.[key];
   if (typeof value === "string" && value) return value;
-  if (devBypassAuth) return fallback;
   throw new Error(
     `Missing runtime config: window.config.${key}. Populate public/config.js from public/config.js.example.`,
   );
 }
 
-const baseUrl = readConfig("ONE_WSO2_AUTH_BASE_URL", "https://dev.local/asgardeo");
+const baseUrl = readConfig("ONE_WSO2_AUTH_BASE_URL");
 
 // Derive Asgardeo's hosted My Account portal URL from the tenant base URL.
 // Standard Asgardeo Cloud shape: api.asgardeo.io/t/<tenant> → myaccount.asgardeo.io/t/<tenant>.
@@ -208,9 +200,9 @@ function deriveMyAccountUrl(base: string): string {
 
 export const authConfig = {
   baseUrl,
-  clientId: readConfig("ONE_WSO2_AUTH_CLIENT_ID", "dev-mode-client"),
-  afterSignInUrl: readConfig("ONE_WSO2_AUTH_SIGN_IN_REDIRECT_URL", "http://localhost:3000"),
-  afterSignOutUrl: readConfig("ONE_WSO2_AUTH_SIGN_OUT_REDIRECT_URL", "http://localhost:3000"),
+  clientId: readConfig("ONE_WSO2_AUTH_CLIENT_ID"),
+  afterSignInUrl: readConfig("ONE_WSO2_AUTH_SIGN_IN_REDIRECT_URL"),
+  afterSignOutUrl: readConfig("ONE_WSO2_AUTH_SIGN_OUT_REDIRECT_URL"),
   // Asgardeo's hosted My Account portal — opened from the top-bar profile menu.
   myAccountUrl: deriveMyAccountUrl(baseUrl),
   // Same scope set as Novera and the leave/menu backends — groups is

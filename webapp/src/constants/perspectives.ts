@@ -27,6 +27,7 @@ import {
   ClipboardCheckIcon,
   DatabaseIcon,
   HouseIcon,
+  LandmarkIcon,
   LifeBuoyIcon,
   LayoutDashboard,
   LucideLayoutGrid,
@@ -53,6 +54,7 @@ import {
   FINANCE_PERSPECTIVE_APPS,
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
+import { MIS_APPS } from "@constants/misApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import { DUE_DILIGENCE_APPS } from "@constants/dueDiligenceApps";
@@ -119,8 +121,28 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
 // Org Chart is the one section here WITHOUT `requires: ["admin"]` — same
 // people-app backend as everything else here, but a different endpoint
 // (/employees/basic-info) with its own access model: any employee in that
-// endpoint's configured group, not a people-app admin privilege. See
-// docs/ported-apps/org-chart.md.
+// endpoint's configured group, not a people-app admin privilege.
+
+// Banking's admin/lead screens (Change Requests, Report, Employee
+// Operations, Admin — see features/banking-admin/bankingAdminTabs.ts).
+// Reachable from BOTH People Ops and Finance, because the four tabs split
+// across both admin types. ONE object, included in both perspectives'
+// sections below, so the two rails can't drift apart — same pattern
+// DUE_DILIGENCE_APPS already uses for Finance+Legal. Gated on the banking
+// backend's own GET /employee-privileges, not `requires` — see
+// useBankingAdminAccess and this id's dispatch in usePerspectiveVisibility.
+// Its route lives OUTSIDE both perspectives, at a neutral top-level
+// /banking/admin (see App.tsx), the same reason Due Diligence's own routes
+// live outside Finance/Legal: a screen reached from two rails can't itself
+// live under either rail's own path prefix.
+export const BANKING_ADMIN_ITEM_ID = "banking-admin";
+const BANKING_ADMIN_SECTION: PerspectiveSection = {
+  id: BANKING_ADMIN_ITEM_ID,
+  label: "Banking",
+  icon: LandmarkIcon,
+  path: "/banking/admin",
+};
+
 export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
   {
     id: "people-org-chart",
@@ -190,8 +212,8 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
   },
   // promotion-app's Lead Portal ("Time Based Promotions") — reviewing and
   // deciding on other people's promotions is People-Ops-team work, the same
-  // split PAR's own Lead/Admin portals above already apply. See
-  // docs/ported-apps/promotion-app.md. Gated via PROMOTION_LEAD_PORTAL_ITEM_ID
+  // split PAR's own Lead/Admin portals above already apply. Gated via
+  // PROMOTION_LEAD_PORTAL_ITEM_ID
   // below, not `requires` — promotion-app's own Role.LEAD (read back from its
   // GET /employee-privileges) bears no fixed relationship to people-app's
   // generic "lead" capability `requires` would otherwise gate on.
@@ -295,6 +317,7 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
       },
     ],
   },
+  BANKING_ADMIN_SECTION,
 ];
 
 /**
@@ -433,9 +456,9 @@ const ME_SECTIONS: PerspectiveSection[] = [
   },
   ...appsToSections(ME_APPS),
   ...appsToSections(ME_FINANCE_APPS),
-  // par-app's employee portal — see docs/ported-apps/par-app.md.
+  // par-app's employee portal.
   ...appsToSections(ME_PAR_APPS),
-  // promotion-app's employee portal — see docs/ported-apps/promotion-app.md.
+  // promotion-app's employee portal.
   // Held behind a preview flag until the whole app (this item plus the
   // "Promotion" group under People Ops) is ready for production — see
   // isPreviewEnabled's own call in PEOPLE_OPS_SECTIONS below and in App.tsx.
@@ -586,6 +609,16 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // roles, not the coarse capability model — see useDueDiligenceGate and
       // its dispatch in SideRail.
       ...appsToSections(DUE_DILIGENCE_APPS),
+      // Banking's admin/lead screens — also surfaced under People Ops (see
+      // BANKING_ADMIN_SECTION above). Same object, included in both places,
+      // so the two rails can't drift.
+      BANKING_ADMIN_SECTION,
+      // Finance MIS reports company-wide revenue. It sits under Finance.
+      // Gated on the MIS ARR backend's own privileges, not on `requires` —
+      // see useMisGate. Privilege 987 is also this app's PRIVILEGE.EMPLOYEE,
+      // so reading one for the other would show company revenue to everyone.
+      // Behind the `mis` preview flag. The routes carry the same flag.
+      ...(isPreviewEnabled("mis") ? appsToSections(MIS_APPS) : []),
     ],
   },
   // Legal. Currently just a second entry point into Due Diligence (see the
@@ -645,6 +678,39 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/sales",
     sections: SALES_SECTIONS,
   },
+  // Product Download Stats is the first engineering tool. It is not under
+  // Infra Portal: Infra is GitHub administration, and this is release
+  // downloads, package downloads, and repository stats. The perspective stays
+  // hidden until the preview flag is on. The route stays registered either
+  // way, so a direct visit while the flag is off says Engineering is not
+  // available.
+  ...(isPreviewEnabled("engineering")
+    ? [
+        {
+          key: "engineering",
+          label: "Engineering",
+          icon: BarChart3,
+          access: true,
+          path: "/engineering",
+          forwardsToFirstItem: true,
+          sections: [
+            {
+              id: "engineering-product-download-stats",
+              label: "Product Download Stats",
+              icon: BarChart3,
+              alwaysGroup: true,
+              children: [
+                {
+                  id: "engineering-download-stats-overview",
+                  label: "Overview",
+                  path: "/engineering",
+                },
+              ],
+            },
+          ],
+        },
+      ]
+    : []),
   // Held behind a preview flag, whole perspective and all, until it's ready
   // for production. With the flag off the entry does not exist, so the waffle,
   // landing options, and favourites stay clean. Same shape as UMT above.

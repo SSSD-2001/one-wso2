@@ -17,7 +17,7 @@
  */
 
 import { useState } from "react";
-import { Alert, MenuItem, Select, Skeleton } from "@wso2/oxygen-ui";
+import { Alert, MenuItem, Select } from "@wso2/oxygen-ui";
 import { useFinanceGate } from "../api/useFinanceGate";
 import CcDashboardPage from "../cc/pages/CcDashboardPage";
 import OpdDashboardScreen from "../opd/dashboard/OpdDashboardScreen";
@@ -79,6 +79,16 @@ export default function FinanceOverviewPage() {
   const section: OverviewTab =
     picked ?? (!gate.ccHasOwnCard && (gate.opdFinance || gate.opdErrored) ? "opd" : "cc");
 
+  // Nothing rendered while resolving — not even a skeleton. The rail already
+  // shows no row for this entry until its gate settles (SideRail fails
+  // closed while resolving, same as every other perspective's), so the
+  // content pane matches it: a placeholder here would be the one thing left
+  // to blink if `isResolving` ever flips more than once on the way to a
+  // final answer. Nothing to see is worth more than something to look at
+  // twice.
+  if (gate.isResolving) {
+    return null;
+  }
   // The rail hides this entry when `canSee("finance-overview")` is false,
   // but hiding a link is not access control — the route is still reachable
   // by a bookmark or a typed URL, the same reasoning `ClaimApprovalTabRoute`
@@ -87,9 +97,6 @@ export default function FinanceOverviewPage() {
   // filter true) and they'd see a dropdown with nothing in it instead of an
   // explicit answer. No data exposure either way — same as any finance
   // route today — just a dead-end UI this closes off.
-  if (gate.isResolving) {
-    return <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />;
-  }
   if (!gate.canSee("finance-overview")) {
     return <Alert severity="info">This isn&apos;t available for your role.</Alert>;
   }

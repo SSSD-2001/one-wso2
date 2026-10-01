@@ -21,6 +21,7 @@
 // host nor an admin, and answers 403 on every endpoint for a caller in no
 // authorised group. 
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { useMemo } from "react";
 import { SALES_PRIVILEGE, type Meeting } from "./salesTypes";
 import { isSalesBackendConfigured, useSalesUserInfo } from "./useSalesData";
@@ -106,4 +107,11 @@ export function useSalesRailGate(enabled: boolean): SalesRailGate {
     errorMessage: failed ? describeError(error) : undefined,
     retry: () => void refetch(),
   };
+}
+
+export function salesVisibility(gate: SalesRailGate): VisibilityAnswer {
+  const canSee = (id: string) => gate.canSee(id);
+  return gate.isError
+    ? { canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee, resolving: gate.isResolving, retry: () => undefined };
 }

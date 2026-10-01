@@ -104,10 +104,18 @@ import BankingRoute from "@features/my/banking/components/BankingRoute";
 import BankingPage, { BankingIndex } from "@features/my/banking/pages/BankingPage";
 import MyAccountsTab from "@features/my/banking/pages/MyAccountsTab";
 import SummaryTab from "@features/my/banking/pages/SummaryTab";
+import BankingAdminRoute from "@features/banking-admin/components/BankingAdminRoute";
+import BankingAdminTabRoute from "@features/banking-admin/components/BankingAdminTabRoute";
+import BankingAdminPage, { BankingAdminIndex } from "@features/banking-admin/pages/BankingAdminPage";
+import ChangeRequestsTab from "@features/banking-admin/pages/ChangeRequestsTab";
+import ReportTab from "@features/banking-admin/pages/ReportTab";
+import EmployeeOperationsTab from "@features/banking-admin/pages/EmployeeOperationsTab";
+import AdminTab from "@features/banking-admin/pages/AdminTab";
 import MyTeamPage from "@features/my/my-team/pages/MyTeamPage";
 import TeamMemberPage from "@features/my/my-team/pages/TeamMemberPage";
 import PerspectiveLanding from "@components/perspective-landing/PerspectiveLanding";
 import SriLankaRoute from "@components/route-guards/SriLankaRoute";
+import MasterDataRoute from "@components/route-guards/MasterDataRoute";
 import AdCampaignsAnalyticsPage from "@features/marketing-ops/ad-campaigns/pages/AdCampaignsAnalyticsPage";
 import CampaignTrackerPage from "@features/marketing-ops/ad-campaigns/pages/CampaignTrackerPage";
 import UtmGeneratorPage from "@features/marketing-ops/utilities/pages/UtmGeneratorPage";
@@ -169,7 +177,15 @@ import CcPendingPage from "@features/finance/cc/pages/CcPendingPage";
 import CcApprovePage from "@features/finance/cc/pages/CcApprovePage";
 import CcHistoryPage from "@features/finance/cc/pages/CcHistoryPage";
 import CcSettingsPage from "@features/finance/cc/pages/CcSettingsPage";
+import SubsidiariesPage from "@features/finance/masterdata/pages/SubsidiariesPage";
+import DepartmentsPage from "@features/finance/masterdata/pages/DepartmentsPage";
+import ExpenseTypesPage from "@features/finance/masterdata/pages/ExpenseTypesPage";
+import CreditCardsPage from "@features/finance/masterdata/pages/CreditCardsPage";
 import ExpenseNewClaimPage from "@features/finance/expense/pages/ExpenseNewClaimPage";
+import MisArrBuildPage from "@features/finance/mis/pages/MisArrBuildPage";
+import MisSession from "@features/finance/mis/components/MisSession";
+import { MIS_PERIODS } from "@features/finance/mis/util/misViewVocabulary";
+import MisArrAnalysisPage from "@features/finance/mis/pages/MisArrAnalysisPage";
 import ExpenseClaimsTab from "@features/finance/expense/pages/ExpenseHistoryPage";
 import ClaimApprovalPage, {
   ClaimApprovalIndex,
@@ -199,6 +215,7 @@ import UmtReleaseChunksPage from "@features/umt/pages/UmtReleaseChunksPage";
 import UmtStatisticsPage from "@features/umt/pages/UmtStatisticsPage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
+import EngineeringOverviewPage from "@features/engineering/pages/EngineeringOverviewPage";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
@@ -229,6 +246,10 @@ export default function App() {
               <Route path="umt/statistics" element={<UmtStatisticsPage />} />
             </>
           )}
+          {/* Registered even while the engineering preview flag is off. The page
+              says Engineering is not available; omitting the route would send a
+              direct visit home with no answer. */}
+          <Route path="engineering" element={<EngineeringOverviewPage />} />
           {isPreviewEnabled("infra") && (
             <>
               <Route path="infra" element={<InfraHomePage />} />
@@ -245,8 +266,7 @@ export default function App() {
           )}
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
-          {/* My Team — a lead's reporting chain, ported from people-app. The
-              spec and the deviation list are in docs/ported-apps/my-team.md. */}
+          {/* My Team — a lead's reporting chain, ported from people-app. */}
           <Route path="me/my-team" element={<MyTeamPage />} />
           <Route path="me/my-team/:employeeId" element={<TeamMemberPage />} />
           {/* Me → Leave: native screens ported from leave-app. Lives here
@@ -398,18 +418,92 @@ export default function App() {
           <Route path="finance/cc/history" element={<CcHistoryPage />} />
           <Route path="finance/cc/settings" element={<CcSettingsPage />} />
           <Route path="finance/opd/dashboard" element={<OpdDashboardScreen />} />
+          {/* Finance → Master Data: the four reference tables the other
+              finance apps are keyed against, each its own route.
+              MasterDataRoute-guarded: this backend has no role scheme of its
+              own, so the frontend's admin + preview-flag check is the only
+              access control in front of it — it has to hold at the route,
+              not just hide the rail item. */}
+          <Route
+            path="finance/master-data/subsidiaries"
+            element={<MasterDataRoute><SubsidiariesPage /></MasterDataRoute>}
+          />
+          <Route
+            path="finance/master-data/departments"
+            element={<MasterDataRoute><DepartmentsPage /></MasterDataRoute>}
+          />
+          <Route
+            path="finance/master-data/expense-types"
+            element={<MasterDataRoute><ExpenseTypesPage /></MasterDataRoute>}
+          />
+          <Route
+            path="finance/master-data/credit-cards"
+            element={<MasterDataRoute><CreditCardsPage /></MasterDataRoute>}
+          />
+          {/* Finance MIS. Nested under /finance/ rather than /finance-mis/,
+              because findPerspectiveByPath matches with a bare
+              pathname.startsWith — "/finance-mis" resolves to the finance
+              perspective and would render its rail around a MIS screen.
+
+              All four screens are routed, and each joined the registry in the
+              same change that gave it a route — the rail renders every visible
+              child of a group whether or not it carries a path, so an entry
+              without one is a row that silently does nothing.
+
+              Access is NOT enforced here: MisShell asks useMisGate, so typing a
+              URL you may not use gives a legible locked state rather than a
+              redirect that leaves the reader guessing.
+
+              ARR Analysis is the one exception, and it is a different question.
+              `productsUsageEnabled` decides whether that screen EXISTS rather
+              than who may read it, so with the flag off its route redirects to
+              ARR Build — see MisArrAnalysisPage, which holds the redirect
+              itself so that a flag not yet known is neither. */}
+          {/* Behind the same preview flag as its rail entries — hiding only the
+              entries would leave every MIS screen reachable by URL. See
+              previewFeatures.ts for what the flag is waiting on. */}
+          {isPreviewEnabled("mis") && (
+            <>
+              {/* A layout route for one reason: the session Years Back. A reader
+                  who has set three years keeps three years across MIS screens, and
+                  it is held in memory alone (it dies with the tab) — so its provider
+                  has to outlive any one
+                  screen. Inside MisShell it would be remounted on every navigation
+                  between these two. See YearsBackSessionContext. */}
+              {/* All three Builds INSIDE `MisSession`, not beside it. The session
+                  Years Back lives in that layout route, and a Period switch is a
+                  NAVIGATION rather than a tab — so a Build mounted outside it would
+                  lose the reader's Years Back on the way over, which is precisely
+                  the journey the value exists for. Quarterly and Monthly default to
+                  1 where Annually defaults to 5, so a missed route shows up as a
+                  Build that silently re-narrows itself. */}
+              <Route element={<MisSession />}>
+                <Route
+                  path="finance/mis/arr-build"
+                  element={<MisArrBuildPage period={MIS_PERIODS.ANNUALLY} />}
+                />
+                <Route
+                  path="finance/mis/qrr-build"
+                  element={<MisArrBuildPage period={MIS_PERIODS.QUARTERLY} />}
+                />
+                <Route
+                  path="finance/mis/mrr-build"
+                  element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
+                />
+                <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
+              </Route>
+            </>
+          )}
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
               from the standalone org-chart app. Unlike every other People Ops
               screen, this is NOT admin-gated — it has its own access model.
               The UI is deliberately redesigned (outline instead of pan/zoom
-              canvas) — the functional spec and the deviation list live in
-              docs/ported-apps/org-chart.md. */}
+              canvas). */}
           <Route path="people-ops/org-chart" element={<OrgChartPage />} />
           {/* People Ops → Subscriptions: PickMe Commute and LaaS, ported from
               the digiops-hr subscription-app — until now a mobile microapp
-              with no web view at all. Spec and deviations in
-              docs/ported-apps/subscription-app.md.
+              with no web view at all.
 
               Neither route is guarded here, and the manage route's absence of
               a guard is deliberate rather than an oversight: the service's own
@@ -438,15 +532,13 @@ export default function App() {
           {/* Me → Promotion: promotion-app's own employee route ("Self
               Promotion History"). Behind the same preview flag as every
               other promotion-app route (People Ops → Promotion below) — the
-              whole app isn't released yet. See
-              docs/ported-apps/promotion-app.md. */}
+              whole app isn't released yet. */}
           {isPreviewEnabled("promotion") && <Route path="me/promotion" element={<PromotionHistoryPage />} />}
           {/* Me → PAR: the employee half of par-app, ported one screen at a
               time. Tab names match par-app's own OngoingCycleView tab bar
               (Employee Feedback / Request 360° Feedback / Provide 360°
-              Feedback / F2F) rather than invented ones. See
-              docs/ported-apps/par-app.md. Not gated beyond signing in —
-              every employee has their own PAR — except an intern, who
+              Feedback / F2F) rather than invented ones. Not gated beyond
+              signing in — every employee has their own PAR — except an intern, who
               never does, regardless of lead or active-cycle status;
               ParRequiresSomethingToShowRoute redirects them to /me. Same
               shape as ParRequiresAdminRoute below. See
@@ -527,7 +619,7 @@ export default function App() {
           {/* People Ops → PAR → Lead Portal: par-app's LeadPortal.tsx, ported
               one tab at a time — all five tabs are now live. Reviewing and
               rating your reports' PAR is People-Ops-team work, unlike the
-              employee half (now under Me — see docs/ported-apps/par-app.md).
+              employee half (now under Me).
               Gated on ParRequiresTeamLeadRoute (par-app's own Role.TEAM_LEAD
               gate on /lead-portal). */}
           <Route
@@ -624,8 +716,7 @@ export default function App() {
               "Promotion" group (perspectives.ts) — hiding only the
               rail/launcher entry would leave every route below reachable by
               URL. Each portal's own role guard (PromotionRequires*Route)
-              keeps working the same regardless of this flag — see
-              docs/ported-apps/promotion-app.md. */}
+              keeps working the same regardless of this flag. */}
           {isPreviewEnabled("promotion") && (
             <>
               {/* Lead Portal: promotion-app's own lead.tsx ("Time Based
@@ -852,7 +943,7 @@ export default function App() {
               meet-app backend refuses a caller in no authorised group on
               every endpoint, and SalesShell turns that 403 into an
               explanation, so someone reaching this URL gets an answer rather
-              than a blank page. See docs/ported-apps/sales-meetings.md. */}
+              than a blank page. */}
           <Route path="sales" element={<SalesMeetingsPage />} />
           {/* One meeting: the recording, and the call's details. A route rather than a
               dialog because a recording is something people send each other, and a dialog
@@ -861,8 +952,7 @@ export default function App() {
           <Route path="sales/meetings/:meetingId" element={<MeetingDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
-              menu app. One page, as the original was. The functional spec and
-              the deviation list live in docs/ported-apps/menu-app.md. */}
+              menu app. One page, as the original was. */}
           <Route
             path="me/menu"
             element={
@@ -926,6 +1016,56 @@ export default function App() {
           <Route path="due-diligence/preferences" element={<DueDiligencePreferencesPage />} />
           <Route path="due-diligence/view-pdf" element={<ViewPdfPage />} />
           <Route path="due-diligence/view-image" element={<ViewImagePage />} />
+          {/* Banking's admin/lead screens — Change Requests, Report,
+              Employee Operations, and Admin views. Route lives OUTSIDE both
+              the People Ops and
+              Finance path prefixes, same reason Due Diligence's own routes
+              do above: a screen reachable from two different rails can't
+              itself live under either one's own prefix. BankingAdminRoute
+              is the "any admin at all" gate; BankingAdminTabRoute is the
+              finer per-tab split (Change Requests is People-Ops-only). */}
+          <Route
+            path="banking/admin"
+            element={
+              <BankingAdminRoute>
+                <BankingAdminPage />
+              </BankingAdminRoute>
+            }
+          >
+            <Route index element={<BankingAdminIndex />} />
+            <Route
+              path="change-requests"
+              element={
+                <BankingAdminTabRoute gateId="people-ops-admin">
+                  <ChangeRequestsTab />
+                </BankingAdminTabRoute>
+              }
+            />
+            <Route
+              path="report"
+              element={
+                <BankingAdminTabRoute gateId="either-admin">
+                  <ReportTab />
+                </BankingAdminTabRoute>
+              }
+            />
+            <Route
+              path="employee-operations"
+              element={
+                <BankingAdminTabRoute gateId="either-admin">
+                  <EmployeeOperationsTab />
+                </BankingAdminTabRoute>
+              }
+            />
+            <Route
+              path="admin"
+              element={
+                <BankingAdminTabRoute gateId="either-admin">
+                  <AdminTab />
+                </BankingAdminTabRoute>
+              }
+            />
+          </Route>
           {/* Me → Email Groups: the mailing-list subscription manager ported
               from the standalone Email Group Manager app (the email-signature
               half of that app is not part of this port). Every employee sees

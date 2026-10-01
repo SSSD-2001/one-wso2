@@ -45,6 +45,7 @@ import { umtProductHasDescriptionInstruction } from "../../lib/umtDescriptionIns
 const { DataGrid: DataGridComponent } = DataGrid;
 
 // Verification/approval documentation links.
+// TODO: move these links out of the code, into runtime config (public/config.js).
 const DESCRIPTION_DOC_LINK = "https://sites.google.com/wso2.com/updatemanagertool/home#h.6kt0o1wzf1y1";
 const BEHAVIOR_CHANGE_APPROVAL_LINK = "https://sites.google.com/wso2.com/updatemanagertool/home#h.g836jj6cxa2r";
 

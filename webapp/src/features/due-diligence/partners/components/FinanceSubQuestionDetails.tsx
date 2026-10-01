@@ -14,11 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useRef, useState } from "react";
-import { Alert, Box, Button, FormControl, FormControlLabel, Radio, RadioGroup, Snackbar, Stack, TextField, Typography } from "@wso2/oxygen-ui";
-import { FileIcon, UploadIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { useRef, useState, type DragEvent } from "react";
+import { Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, Radio, RadioGroup, Snackbar, Stack, TextField, Typography } from "@wso2/oxygen-ui";
+import { CloudUploadIcon, FileIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
-import { FILE_UPLOAD_LIMIT } from "@features/due-diligence/constants";
+import { FILE_UPLOAD_LIMIT, FINANCE_CHOOSE_FILE_SUBQUESTION_ID } from "@features/due-diligence/constants";
 import { useDeletePartnerFile, useSavePartnerFilesMetadata, useUploadPartnerFile } from "../api/useFinance";
 import type { FileSubmission, FinanceComment, PartnerAnswer, QuestionInfo, SubQuestionInfo } from "../api/financeTypes";
 
@@ -42,6 +42,7 @@ export default function FinanceSubQuestionDetails({
   approvalEmailSent,
   applicantEmail,
   fieldDisabled,
+  canUploadFiles,
   onAnswered,
 }: {
   companyId: string;
@@ -53,6 +54,15 @@ export default function FinanceSubQuestionDetails({
   approvalEmailSent: boolean;
   applicantEmail: string;
   fieldDisabled: boolean;
+  // Separate from fieldDisabled on purpose — see the note where this is
+  // computed in FinanceQuestionDetails.tsx. fieldDisabled is false only for
+  // the narrow set of questions/roles that may approve a decision, which
+  // left this permanently true (and file uploads permanently gated out) for
+  // the attach-files question specifically, for every caller regardless of
+  // role. canUploadFiles is the actual permission check for the upload
+  // trigger below; it must stay true only for roles that can legitimately
+  // reach this tab, not be removed outright.
+  canUploadFiles: boolean;
   onAnswered: (subQuestionId: number, booleanAnswer: boolean | "", descriptionAnswer: string, isValid: boolean) => void;
 }) {
   const uploadFile = useUploadPartnerFile();
@@ -68,9 +78,11 @@ export default function FinanceSubQuestionDetails({
   );
   const [pendingFiles, setPendingFiles] = useState<{ fileName: string }[]>([]);
   const [snack, setSnack] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const savedFiles = files.filter((f) => f.subQuestionId === subQuestion.subQuestionId);
+  const fileLimitReached = savedFiles.length + pendingFiles.length >= FILE_UPLOAD_LIMIT;
 
   const totalQ42Q43Comments = comments.filter((c) => c.questionId === 42 || c.questionId === 43).length;
   const shouldDisableRadioButtons = totalQ42Q43Comments === 0 || !approvalEmailSent;
@@ -87,7 +99,7 @@ export default function FinanceSubQuestionDetails({
   };
 
   const handleFileSelect = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+    if (!fileList || fileList.length === 0 || !canUploadFiles) return;
     const total = savedFiles.length + pendingFiles.length + fileList.length;
     if (total > FILE_UPLOAD_LIMIT) {
       setSnack(`Cannot upload more than ${FILE_UPLOAD_LIMIT} files`);
@@ -109,6 +121,7 @@ export default function FinanceSubQuestionDetails({
   };
 
   const saveNewFiles = () => {
+    if (!canUploadFiles) return;
     saveMetadata.mutate(
       {
         email: applicantEmail,
@@ -128,6 +141,26 @@ export default function FinanceSubQuestionDetails({
         onError: (err) => setSnack(`Save failed: ${humanizeHttpError(err)}`),
       },
     );
+  };
+
+  const handleDragEnter = (e: DragEvent) => {
+    e.preventDefault();
+    if (!fileLimitReached && !uploadFile.isPending) setIsDragging(true);
+  };
+  const handleDragOver = (e: DragEvent) => e.preventDefault();
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    // uploadFile.isPending too, not just fileLimitReached: fileLimitReached
+    // is derived from savedFiles/pendingFiles, neither of which accounts for
+    // a file that's mid-upload but not yet in either list — without this, a
+    // drop during an in-flight upload could kick off another one and push
+    // past FILE_UPLOAD_LIMIT.
+    if (!fileLimitReached && !uploadFile.isPending) void handleFileSelect(e.dataTransfer.files);
   };
 
   const openFile = (fileName: string) => {
@@ -219,18 +252,67 @@ export default function FinanceSubQuestionDetails({
                 <XIcon size={14} style={{ cursor: "pointer" }} onClick={() => removePendingFile(f.fileName)} />
               </Stack>
             ))}
-            {!fieldDisabled && savedFiles.length + pendingFiles.length < FILE_UPLOAD_LIMIT && (
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<UploadIcon size={15} />}
-                onClick={() => inputRef.current?.click()}
-                sx={{ alignSelf: "flex-start", textTransform: "none" }}
+            {// Only the shared "Attach files" dropzone (subQuestion 100)
+            // gets its own upload trigger — every other file-upload
+            // sub-question here is a per-year document the partner already
+            // submitted, so it only ever shows the read-only file list
+            // above. One upload control at the bottom instead of one
+            // repeated per file avoids the same action appearing three
+            // times in a row for what's really one attach-a-document step.
+            // canUploadFiles gates it, not fieldDisabled — see the prop's
+            // own doc comment for why those two aren't interchangeable here.
+            subQuestion.subQuestionId === FINANCE_CHOOSE_FILE_SUBQUESTION_ID && canUploadFiles && (
+              <Box
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => !fileLimitReached && !uploadFile.isPending && inputRef.current?.click()}
+                sx={{
+                  border: 1,
+                  borderStyle: "dashed",
+                  borderColor: isDragging ? "primary.main" : "divider",
+                  borderRadius: 1,
+                  bgcolor: isDragging ? "action.hover" : "background.default",
+                  p: 3,
+                  textAlign: "center",
+                  cursor: fileLimitReached || uploadFile.isPending ? "default" : "pointer",
+                }}
               >
-                Upload file
-              </Button>
+                {uploadFile.isPending ? (
+                  <>
+                    <CircularProgress size={22} />
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      Uploading…
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <CloudUploadIcon size={22} style={{ opacity: 0.6 }} />
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {fileLimitReached ? (
+                        "Maximum files reached"
+                      ) : (
+                        <>
+                          <Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                            Click to upload
+                          </Typography>{" "}
+                          or drag and drop
+                        </>
+                      )}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {fileLimitReached
+                        ? `(${savedFiles.length + pendingFiles.length}/${FILE_UPLOAD_LIMIT} files uploaded)`
+                        : "PDF, JPEG, PNG, JPG (max 5 files)"}
+                    </Typography>
+                  </>
+                )}
+              </Box>
             )}
-            <input ref={inputRef} type="file" multiple hidden onChange={(e) => void handleFileSelect(e.target.files)} />
+            {subQuestion.subQuestionId === FINANCE_CHOOSE_FILE_SUBQUESTION_ID && canUploadFiles && (
+              <input ref={inputRef} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => void handleFileSelect(e.target.files)} disabled={fileLimitReached} />
+            )}
             {pendingFiles.length > 0 && (
               <Stack direction="row" spacing={1}>
                 <Button size="small" variant="contained" onClick={saveNewFiles} disabled={saveMetadata.isPending}>

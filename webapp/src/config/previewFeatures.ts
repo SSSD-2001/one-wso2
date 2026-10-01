@@ -76,9 +76,34 @@ export type PreviewFeature =
    * alike. Unlike umt/infra this isn't a whole perspective; it's a set of
    * items nested inside Me and People Ops, gated the same way so the
    * feature can ship to `main` without going live in production before
-   * it's ready — see docs/ported-apps/promotion-app.md.
+   * it's ready.
    */
-  | "promotion";
+  | "promotion"
+  /**
+   * Finance → Master Data (Subsidiaries, Departments, Expense Types, Credit
+   * Cards) — see useFinanceGate.ts's master-data case. Waiting on two things
+   * that are outside this codebase: a Choreo deployment of the backend for
+   * whichever environment is reading this flag, and confirmation that the
+   * real Asgardeo admin group maps onto the `admin` capability this gate
+   * also checks — until both are true, real users should not see it even
+   * where this flag is on.
+   */
+  | "finance-master-data"
+  /**
+   * The whole Engineering perspective — waffle tile, rail, favourites,
+   * landing choices, and the Product Download Stats screens. The perspective
+   * stays hidden until this is on. A direct visit while it is off says
+   * Engineering is not available.
+   */
+  | "engineering"
+  /**
+   * Finance → Finance MIS — the ARR, QRR and MRR Builds and ARR Analysis,
+   * rail entries and routes alike. Held back as a whole until Finance has
+   * verified its figures. `useMisGate`'s own privilege check is unrelated and
+   * keeps working the same either way.
+   */
+  | "mis";
+
 
 /**
  * Whether a preview feature should be shown.

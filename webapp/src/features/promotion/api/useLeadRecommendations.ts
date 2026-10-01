@@ -63,11 +63,10 @@ export function useLeadRecommendations(
 // Every mutation below invalidates every `promotion-recommendations` query
 // regardless of its specific args (leadEmail/statusArray/cycle) — broader
 // than source's own re-fetch (which re-runs only the pending-list call, with
-// slightly inconsistent params across the three thunks — see
-// docs/ported-apps/promotion-app.md), but a moved recommendation can affect
-// both the Pending and History tab's own lists, and letting React Query
-// re-run each with ITS OWN params is simpler and more correct than
-// hand-copying source's fetch calls into each mutation here.
+// slightly inconsistent params across the three thunks), but a moved
+// recommendation can affect both the Pending and History tab's own lists, and
+// letting React Query re-run each with ITS OWN params is simpler and more
+// correct than hand-copying source's fetch calls into each mutation here.
 function useInvalidateRecommendations() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: [RECOMMENDATIONS_KEY] });

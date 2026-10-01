@@ -21,8 +21,7 @@
 // The department legend is single-select "isolate": clicking a department
 // hides everyone who isn't a member of it or a Chairman-path ancestor
 // leading to one (see OrgChartPage's visibleEmails) — clicking the same one
-// again clears the filter. A hard cut, not a dim — see
-// docs/ported-apps/org-chart.md §3.
+// again clears the filter. A hard cut, not a dim.
 //
 // The company filter is a plain dropdown over the same visibleEmails
 // mechanism, combined with the department filter by AND rather than

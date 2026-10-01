@@ -49,7 +49,13 @@ export default function PromotionTeamRoster({ kind, email }: { kind: "direct" | 
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
         <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => void team.refetch()}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setSearchKey("");
+              void team.refetch();
+            }}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>

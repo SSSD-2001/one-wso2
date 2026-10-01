@@ -15,6 +15,7 @@
 // under the License.
 
 import { describeError } from "@api/errors";
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { isMisArrConfigured } from "@config/apiConfig";
 import { useMisUserInfo } from "./useMisUserInfo";
 import { useMisAppConfigs } from "./useMisAppConfigs";
@@ -123,4 +124,11 @@ export function useMisGate(enabled = true): MisGate {
     errorMessage: enabled && userInfo.isError ? describeError(userInfo.error) : undefined,
     retry: () => void userInfo.refetch(),
   };
+}
+
+/** Rail and landing facts. A failed read is retried; a refusal is not an error. */
+export function misVisibility(gate: MisGate): VisibilityAnswer {
+  return gate.isError
+    ? { canSee: gate.canSee, resolving: gate.isResolving, error: gate.errorMessage, retry: gate.retry }
+    : { canSee: gate.canSee, resolving: gate.isResolving, retry: () => undefined };
 }

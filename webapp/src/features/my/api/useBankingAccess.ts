@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { HttpError } from "@api/http";
 import { bankingBackendUrl } from "@config/apiConfig";
 import { useBankingPrivileges } from "./useBankingPrivileges";
@@ -81,4 +82,13 @@ export function useBankingAccess(enabled = true): BankingAccess {
   }
 
   return { canSee: Boolean(privileges.data?.isEmployee), isResolving: false, isError: false, retry };
+}
+
+/** Rail and landing facts. BankingRoute still retries a failed privileges read; the landing does not. */
+export function bankingVisibility(access: BankingAccess): VisibilityAnswer {
+  return {
+    canSee: () => access.canSee,
+    resolving: access.isResolving,
+    retry: () => undefined,
+  };
 }

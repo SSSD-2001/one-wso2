@@ -19,6 +19,7 @@ import { authedDelete, authedGet, authedPatch, authedPost, fetchWithReauth, Http
 import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { dueDiligenceServiceUrls, isDueDiligenceBackendConfigured } from "@config/apiConfig";
+import { ALLOWED_FILE_EXTENSIONS } from "@features/due-diligence/constants";
 import type { FinanceAnswerData, PartnerQuestionData } from "./financeTypes";
 
 /** GET /partners/questions — the finance/legal/trade-reference question bank (shared across all three forms). */
@@ -151,8 +152,11 @@ export function useUploadPartnerFile() {
 
   return useMutation({
     mutationFn: async ({ email, file }: { email: string; file: File }) => {
-      const accessToken = await getAccessToken();
       const extension = (file.name.split(".").pop() ?? "").toLowerCase();
+      if (!ALLOWED_FILE_EXTENSIONS.has(extension)) {
+        throw new Error(`"${file.name}" isn't an allowed file type. Only PDF, JPEG, PNG, and JPG files can be attached.`);
+      }
+      const accessToken = await getAccessToken();
       const url = dueDiligenceServiceUrls.partnerFileUpload(email, file.name, extension);
       const res = await fetchWithReauth(url, { method: "POST", body: file }, accessToken);
       if (!res.ok) {

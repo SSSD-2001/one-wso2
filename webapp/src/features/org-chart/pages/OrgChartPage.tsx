@@ -21,9 +21,7 @@
 // four-endpoint, lazy-per-manager backend contract isn't available either —
 // this now reads the people-app backend's employee directory
 // (useEmployeeDirectory) in one request and builds the whole tree client-side
-// (buildOrgTree). The full functional spec, including why the interaction
-// model changed, is in docs/ported-apps/org-chart.md — read that rather than
-// reconstructing the rules from this file.
+// (buildOrgTree).
 //
 // Row visibility (`openEmails`) is lifted here so Expand all / Reset view can
 // act on every row at once.
@@ -102,8 +100,7 @@ export default function OrgChartPage() {
   // "keep the path to the root visible" is exactly the same problem. null
   // means no filter active at all: show everyone. A row not in this set is
   // fully hidden, not dimmed — including an ancestor's OTHER children that
-  // don't match (a deliberate change from the original dim-only design; see
-  // docs/ported-apps/org-chart.md §3).
+  // don't match (a deliberate change from the original dim-only design).
   const visibleEmails = useMemo(() => {
     if ((!selectedDepartment && !selectedCompany) || !directory.data) return null;
     const visible = new Set<string>();
@@ -156,8 +153,8 @@ export default function OrgChartPage() {
     return new Set(openEmails).add(rootEmail);
   }, [openEmails, tree?.root.workEmail, rootClosed]);
 
-  // The service refuses every endpoint outside its authorised group — see
-  // docs/ported-apps/org-chart.md §4 — so one notice covers the whole page.
+  // The service refuses every endpoint outside its authorised group, so one
+  // notice covers the whole page.
   const forbidden = directory.error instanceof HttpError && directory.error.status === 403;
 
   const handleToggle = (workEmail: string) => {

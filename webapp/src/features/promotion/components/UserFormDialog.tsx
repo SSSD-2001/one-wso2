@@ -90,7 +90,7 @@ function UserFormDialogContent({
   );
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const directory = useAdminEmployeeDirectory(false, pickerOpen && !isEdit);
+  const directory = useAdminEmployeeDirectory(true, pickerOpen && !isEdit);
   const insertUser = useInsertUser();
   const updateUser = useUpdateUser();
   const saving = insertUser.isPending || updateUser.isPending;

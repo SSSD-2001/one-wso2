@@ -124,7 +124,9 @@ export default function RecommendationEditForm({
                 sx={{ width: 200 }}
                 value={
                   employeeInfo.data
-                    ? formatDate(employeeInfo.data.employeeInfo.lastPromotedDate) || "N/A"
+                    ? employeeInfo.data.employeeInfo.lastPromotedDate
+                      ? formatDate(employeeInfo.data.employeeInfo.lastPromotedDate)
+                      : "N/A"
                     : "…"
                 }
               />

@@ -32,12 +32,14 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { TOUR_STEPS } from "./tourSteps";
 import SideRail from "@components/side-rail/SideRail";
 import { HouseIcon } from "@wso2/oxygen-ui-icons-react";
 
-vi.mock("@features/infra/api/useInfraGate", () => ({
+vi.mock("@features/infra/api/useInfraGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/infra/api/useInfraGate")>()),
   useInfraGate: () => ({ ...gate, isAuthorized: true, isAdmin: true }),
 }));
 vi.mock("@context/perspective/PerspectiveContext", () => ({
@@ -56,16 +58,40 @@ vi.mock("@api/useUserInfo", () => ({
   useUserInfo: () => ({ data: { privileges: [] }, isLoading: false, isError: false }),
 }));
 const gate = { canSee: () => true, isResolving: false };
-vi.mock("@features/finance/api/useFinanceGate", () => ({ useFinanceGate: () => gate }));
-vi.mock("@features/leave/api/useLeaveGate", () => ({ useLeaveGate: () => gate }));
-vi.mock("@features/marketing-ops/api/useMarketingOpsGate", () => ({
+vi.mock("@features/finance/api/useFinanceGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/finance/api/useFinanceGate")>()),
+  useFinanceGate: () => gate,
+}));
+vi.mock("@features/leave/api/useLeaveGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/leave/api/useLeaveGate")>()),
+  useLeaveGate: () => gate,
+}));
+vi.mock("@features/marketing-ops/api/useMarketingOpsGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/marketing-ops/api/useMarketingOpsGate")>()),
   useMarketingOpsGate: () => ({ ...gate, isAuthorized: true, isAdmin: true }),
 }));
 // Mocked for the same reason as the three above — SideRail asks every gate on
 // every render — and for one extra: this gate reaches Asgardeo's SDK to read
 // the id_token's `groups` claim, which does not resolve under the test runner.
-vi.mock("@features/subscriptions/api/useSubscriptionGate", () => ({
+vi.mock("@features/subscriptions/api/useSubscriptionGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/subscriptions/api/useSubscriptionGate")>()),
   useSubscriptionGate: () => ({ ...gate, isAdmin: true, isCommuteAdmin: true, isLunchAdmin: true }),
+}));
+// The visibility fold reads `*Visibility` off the same module as the hook.
+// Replacing the module outright drops that export, and the Me rail asks
+// finance, leave, banking and subscriptions. Spread the real module and
+// override only the hook.
+vi.mock("@features/my/api/useBankingAccess", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/my/api/useBankingAccess")>()),
+  useBankingAccess: () => ({ canSee: true, isResolving: false, isError: false, retry: () => {} }),
+}));
+vi.mock("@features/my/api/useBankingAdminAccess", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/my/api/useBankingAdminAccess")>()),
+  useBankingAdminAccess: () => ({ canSee: false, isResolving: false, isError: false, retry: () => {} }),
+}));
+vi.mock("@features/finance/mis/api/useMisGate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/finance/mis/api/useMisGate")>()),
+  useMisGate: () => ({ ...gate, isError: false, retry: () => {} }),
 }));
 
 /** The selector a named step carries, so a rename fails here rather than silently. */
@@ -77,10 +103,13 @@ function selectorFor(fragment: string): string {
 
 describe("tour selectors against the real rail", () => {
   function renderRail() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
-      <MemoryRouter initialEntries={["/me"]}>
-        <SideRail collapsed={false} />
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/me"]}>
+          <SideRail collapsed={false} />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
   }
 

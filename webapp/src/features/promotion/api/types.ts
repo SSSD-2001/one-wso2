@@ -19,7 +19,7 @@
 // keeps only the "Last promotion" summary card + history dialog on the
 // profile page) the same way PAR's types moved into features/par — this is
 // the canonical home now that the Lead/Functional Lead/Promotion Board/Admin
-// portals (docs/ported-apps/promotion-app.md) also need these.
+// portals also need these.
 
 // GET /employee-info response. Mirrors backend/types.bal's EmployeeInfo
 // (outer) + EmployeeInfoWithLead (inner). All string? fields default to ""
@@ -199,7 +199,7 @@ export interface PromotionEmployeesResponse {
 // PromotionRequest interface (utils/types.ts) declaring those fields: they
 // aren't part of the backend record at all, so any source column bound to
 // them renders blank in the real running app too. Not reproduced as columns
-// here — see docs/ported-apps/promotion-app.md's own deviation entry.
+// here.
 export interface PromotionRequestFull {
   id: number;
   employeeEmail: string;

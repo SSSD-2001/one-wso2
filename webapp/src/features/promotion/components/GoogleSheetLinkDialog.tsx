@@ -15,12 +15,10 @@
 // under the License.
 
 import { useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from "@wso2/oxygen-ui";
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@wso2/oxygen-ui";
 
-// A Google Sheet URL, validated with the same permissive regex source uses
-// (userManagement.tsx / timeBasedPromotion.tsx both validate this way, not
-// specifically that the host is docs.google.com — matching source rather
-// than tightening it here).
+// A Google Sheet URL. Anchored (`^`/`$`) so the whole input must be a URL,
+// not just contain one somewhere.
 const URL_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})[/\w .\-?=&%]*\/?$/i;
 
 // Shared by two Admin Portal sync flows: User Management's "Import users
@@ -30,11 +28,15 @@ const URL_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})[/\w .\-?=&%]*\/?
 export default function GoogleSheetLinkDialog({
   open,
   title,
+  description,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   title: string;
+  /** Optional explanatory text shown above the URL field. Omit it when no
+   * explanation is needed. */
+  description?: string;
   onClose: () => void;
   onSubmit: (url: string) => void;
 }) {
@@ -50,6 +52,7 @@ export default function GoogleSheetLinkDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers>
+        {description && <DialogContentText sx={{ mb: 2 }}>{description}</DialogContentText>}
         <TextField
           fullWidth
           type="url"

@@ -243,7 +243,7 @@ function ApplyForm() {
   // order stands untouched.
   //
   // A deliberate deviation: NotifyPeople.tsx renders mandatoryMails in the
-  // order received. See docs/ported-apps/leave-app.md.
+  // order received.
   const mandatory = useMemo(() => {
     const all = (appConfig.data?.cachedEmails.mandatoryMails ?? []).map((m) => m.email);
     const lead = userInfo.data?.leadEmail;

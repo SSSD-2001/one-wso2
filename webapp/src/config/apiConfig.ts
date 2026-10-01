@@ -168,6 +168,56 @@ export const bankingServiceUrls = {
   banks: `${bankingBackendUrl}/banks`,
   // POST /employee/accounts — submits a bank account change request.
   createBankAccountRequest: `${bankingBackendUrl}/employee/accounts`,
+  // POST /banks — same route as the GET above; adds a bank to the list.
+  createBank: `${bankingBackendUrl}/banks`,
+  // PATCH /threshold — updates the Salary or Consultancy monthly cutoff day.
+  updateThreshold: `${bankingBackendUrl}/threshold`,
+  // GET /employee/accounts?statusArray=REQUESTED&accountTypesArray=SALARY —
+  // the Change Requests tab's own admin-wide query: every account still
+  // awaiting a People Ops decision. Deliberately omits employeeWorkEmail
+  // (unlike employeeAccounts() above) — the backend's own resource check
+  // requires an admin role whenever that param is left out, which is what
+  // makes this the admin query rather than a self-lookup. Fixed to
+  // REQUESTED/SALARY because this tab never shows anything else — the
+  // backend's own approve/reject action refuses any non-Salary account.
+  pendingSalaryAccounts: `${bankingBackendUrl}/employee/accounts?statusArray=REQUESTED&accountTypesArray=SALARY`,
+  // POST /employee/accounts/{accountId}/approve|reject — People-Ops-only,
+  // backend-enforced Salary-account-only (service.bal's own accountType
+  // check on this same resource).
+  accountAction: (accountId: number, action: "approve" | "reject") =>
+    `${bankingBackendUrl}/employee/accounts/${accountId}/${action}`,
+  // GET /employees — the banking backend's (ONE_WSO2_BANKING_BACKEND_URL)
+  // OWN employee directory, not one-wso2's other people-search UIs
+  // elsewhere. Backs Employee Operations' employee search.
+  // Returns a bare array, not a `{employees: [...]}` wrapper — matches
+  // service.bal's own `returns ... entity:Employee[]`.
+  employees: `${bankingBackendUrl}/employees`,
+  // POST /employee/accounts/{accountId}/deactivate — no body.
+  deactivateAccount: (accountId: number) => `${bankingBackendUrl}/employee/accounts/${accountId}/deactivate`,
+  // GET /employee/accounts with the Report tab's admin filters — same
+  // resource as pendingSalaryAccounts above, generalized to whatever
+  // date-range/type/status combination the admin has searched for, and
+  // (like pendingSalaryAccounts) never sending employeeWorkEmail, which is
+  // what makes this the admin-wide query rather than a self-lookup. Array
+  // params repeat the key rather than joining with a comma — Ballerina
+  // binds a repeated query param to an array (db:AccountType[]?/
+  // db:AccountStatus[]?), not a delimited string. An omitted filter is left
+  // out of the query string entirely rather than sent empty, matching the
+  // source app's own `getFilteredBankAccounts` query-building.
+  reportAccounts: (filters: {
+    createdFrom?: string;
+    createdTo?: string;
+    accountTypesArray: string[];
+    statusArray: string[];
+  }) => {
+    const params = new URLSearchParams();
+    if (filters.createdFrom) params.set("createdFrom", filters.createdFrom);
+    if (filters.createdTo) params.set("createdTo", filters.createdTo);
+    filters.accountTypesArray.forEach((t) => params.append("accountTypesArray", t));
+    filters.statusArray.forEach((s) => params.append("statusArray", s));
+    const qs = params.toString();
+    return `${bankingBackendUrl}/employee/accounts${qs ? `?${qs}` : ""}`;
+  },
 };
 
 // ---- PAR app backend ---------------------------------------------------------
@@ -290,11 +340,6 @@ export const parServiceUrls = {
   // caller being a lead in the active cycle (or admin), not scoped to their
   // own participation the way parCycles(email, "CLOSED") above is.
   parAllClosedCycles: () => `${parBackendUrl}/par-cycles?status=CLOSED`,
-  // GET .../participants?leadEmail= — same endpoint parServiceUrls.par360Participants
-  // hits with no leadEmail (org-wide); EmployeeHistoryView.tsx's own
-  // fetchParticipants scopes it to the calling lead's own reports instead.
-  parHistoryParticipants: (parCycleId: number, leadEmail: string) =>
-    `${parBackendUrl}/par-cycles/${parCycleId}/participants?leadEmail=${encodeURIComponent(leadEmail)}`,
   // GET .../employees/{email}/reviews — every review ABOUT that employee
   // (reviewer, rating, comment, status), regardless of who's asking, as
   // opposed to par360Review (the caller's OWN review of someone else).
@@ -521,6 +566,35 @@ export const expenseServiceUrls = {
     `${expenseBackendUrl}/claims/${encodeURIComponent(email)}/transactions/receipts/file`,
   receiptFile: (fileName: string) =>
     `${expenseBackendUrl}/claims/transactions/receipts/file/${encodeURIComponent(fileName)}`,
+};
+
+// Finance master data — ONE_WSO2_FINANCE_MASTER_DATA_BACKEND_URL.
+//
+// Reference data the other finance apps are keyed against: subsidiaries,
+// departments, expense types and corporate credit cards. Every screen is a
+// CRUD table, so the four collections below each take GET (list) / POST
+// (create) / PATCH /{id} / DELETE /{id}.
+export const financeMasterDataBackendUrl: string =
+  window.config?.ONE_WSO2_FINANCE_MASTER_DATA_BACKEND_URL ?? "";
+
+export function isFinanceMasterDataBackendConfigured(): boolean {
+  return Boolean(financeMasterDataBackendUrl);
+}
+
+export const financeMasterDataServiceUrls = {
+  userInfo: `${financeMasterDataBackendUrl}/user-info`,
+  // The four collections, keyed by path segment, so the item helpers below
+  // can serve all four tabs off one shared builder.
+  collection: (name: string) => `${financeMasterDataBackendUrl}/${name}`,
+  item: (name: string, id: number) =>
+    `${financeMasterDataBackendUrl}/${name}/${encodeURIComponent(String(id))}`,
+  // Expense types are the one table fetched through a POST filter rather than
+  // a plain GET.
+  searchExpenseTypes: `${financeMasterDataBackendUrl}/search-expense-types`,
+  // Dropdown/autocomplete sources for the forms and the expense-type filters.
+  glCodes: `${financeMasterDataBackendUrl}/gl-codes`,
+  employeeEmails: `${financeMasterDataBackendUrl}/employees/email`,
+  expenseTypeAutocomplete: `${financeMasterDataBackendUrl}/expense-types/autocomplete-values`,
 };
 
 // ---- Updates Manager backend ---------------------------------------------
@@ -1239,20 +1313,22 @@ export const promotionServiceUrls = {
   promotionCycles: (status: "OPEN" | "END") =>
     `${promotionBackendUrl}/promotion/cycles?statusArray=${status}`,
   // GET /promotion/recommendations — leadEmail/statusArray/promotionCycleId
-  // are all optional query params; statusArray is comma-joined (backend
-  // splits on ","). Shared by the Lead Portal's Pending Requests tab
-  // (statusArray=REQUESTED, scoped to the open cycle) and History tab
-  // (statusArray=SUBMITTED,DECLINED,EXPIRED, every cycle).
+  // are all optional query params. Shared by the Lead Portal's Pending
+  // Requests tab (statusArray=REQUESTED, scoped to the open cycle) and
+  // History tab (statusArray=SUBMITTED,DECLINED,EXPIRED, every cycle).
+  //
+  // Built by hand, not URLSearchParams: statusArray's comma must stay
+  // unencoded, or the backend won't split it into individual statuses.
   promotionRecommendations: (params: {
     leadEmail?: string;
     statusArray?: ("REQUESTED" | "SUBMITTED" | "DECLINED" | "EXPIRED")[];
     promotionCycleId?: number;
   }) => {
-    const qs = new URLSearchParams();
-    if (params.leadEmail) qs.set("leadEmail", params.leadEmail);
-    if (params.statusArray?.length) qs.set("statusArray", params.statusArray.join(","));
-    if (params.promotionCycleId !== undefined) qs.set("promotionCycleId", String(params.promotionCycleId));
-    return `${promotionBackendUrl}/promotion/recommendations?${qs.toString()}`;
+    const parts: string[] = [];
+    if (params.leadEmail) parts.push(`leadEmail=${encodeURIComponent(params.leadEmail)}`);
+    if (params.statusArray?.length) parts.push(`statusArray=${params.statusArray.join(",")}`);
+    if (params.promotionCycleId !== undefined) parts.push(`promotionCycleId=${params.promotionCycleId}`);
+    return `${promotionBackendUrl}/promotion/recommendations?${parts.join("&")}`;
   },
   // PATCH /promotion/recommendations — body is RecommendationUpdateData
   // (id/statement/comment/leadEmail); statement/comment are base64, matching
@@ -1286,6 +1362,9 @@ export const promotionServiceUrls = {
   // enableBuFilter=true scopes results to the caller's own
   // functionalLeadAccessLevels (business unit/department/team/sub-team) —
   // the backend 403s if the caller holds no such scope at all.
+  //
+  // Built by hand, not URLSearchParams — same reason as promotionRecommendations
+  // above: statusArray's comma must stay unencoded.
   promotionRequests: (params: {
     statusArray?: string[];
     enableBuFilter?: boolean;
@@ -1293,13 +1372,13 @@ export const promotionServiceUrls = {
     cycleId?: number;
     employeeEmail?: string;
   }) => {
-    const qs = new URLSearchParams();
-    if (params.statusArray?.length) qs.set("statusArray", params.statusArray.join(","));
-    if (params.enableBuFilter !== undefined) qs.set("enableBuFilter", String(params.enableBuFilter));
-    if (params.type) qs.set("type", params.type);
-    if (params.cycleId !== undefined) qs.set("cycleId", String(params.cycleId));
-    if (params.employeeEmail) qs.set("employeeEmail", params.employeeEmail);
-    return `${promotionBackendUrl}/promotion/requests?${qs.toString()}`;
+    const parts: string[] = [];
+    if (params.statusArray?.length) parts.push(`statusArray=${params.statusArray.join(",")}`);
+    if (params.enableBuFilter !== undefined) parts.push(`enableBuFilter=${params.enableBuFilter}`);
+    if (params.type) parts.push(`type=${encodeURIComponent(params.type)}`);
+    if (params.cycleId !== undefined) parts.push(`cycleId=${params.cycleId}`);
+    if (params.employeeEmail) parts.push(`employeeEmail=${encodeURIComponent(params.employeeEmail)}`);
+    return `${promotionBackendUrl}/promotion/requests?${parts.join("&")}`;
   },
   // GET .../requests/{id}/approve|reject?from=functional_lead|promotion_board
   // — shared by the Functional Lead and (not yet ported) Promotion Board
@@ -1400,8 +1479,7 @@ export const promotionServiceUrls = {
 
 // ---------------------------------------------------------------------------
 // Menu (cafeteria) backend. Daily menu, lunch feedback, and dinner-on-demand
-// orders. The service is reused unchanged from the standalone app; see
-// docs/ported-apps/menu-app.md for the contract and the behaviour it defines.
+// orders. The service is reused unchanged from the standalone app.
 //
 // Every path is fixed — no builder takes an argument, because the caller is
 // always identified by the token rather than by a path segment.
@@ -1429,7 +1507,6 @@ export const menuServiceUrls = {
 // Subscription backend (digiops-hr subscription-app). The two paid staff
 // services an employee opts in and out of — PickMe Commute and LaaS (lunch as
 // a service) — plus the admin screens that manage them on someone's behalf.
-// See docs/ported-apps/subscription-app.md for the contract.
 //
 // Unlike every builder above, the subject's email is a PATH SEGMENT rather
 // than something the token alone decides. The service reads it and compares it
@@ -1448,8 +1525,7 @@ export function isSubscriptionBackendConfigured(): boolean {
 // Email Group Manager backend (digiops-infra/apps/email-group-manager). Lets
 // an employee browse the company's Google Groups mailing lists, subscribe or
 // unsubscribe themselves, and — client-side only, no backend of its own —
-// build an email signature. See docs/ported-apps/email-group-manager.md for
-// the contract.
+// build an email signature.
 //
 // The source app's own GET /user-info is NOT reused here: this webapp already
 // has an identical call (people-app's, via @api/useUserInfo) for the
@@ -1516,7 +1592,7 @@ export const subscriptionServiceUrls = {
 // token's `aud`, and each Asgardeo application mints its own. It used to accept
 // a single AUTH_AUDIENCE — the GRC webapp's client id — so every request from
 // here 401'd with `token has invalid audience`. That backend now takes a
-// comma-separated set (grc-tools #82, merged and deployed), and AUTH_AUDIENCE
+// comma-separated set, and AUTH_AUDIENCE
 // names this app's client id too.
 //
 // Left here because the failure is otherwise unrecognisable: a 401 on EVERY
@@ -1569,7 +1645,7 @@ export function isEvidencePortalBackendConfigured(): boolean {
 // reused unchanged. The naming difference is deliberate and worth knowing: the
 // config key and everything in this app say "sales" because that is what a
 // user opens, while the contract, the roles and the error messages all belong
-// to meet-app. See docs/ported-apps/sales-meetings.md.
+// to meet-app.
 //
 // The config key keeps its original name, ONE_WSO2_REVOPS_BACKEND_URL, on purpose: it is set in
 // every environment's config.js, and renaming it would need each deployment changed in step.

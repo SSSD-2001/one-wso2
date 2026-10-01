@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { ME_APPS } from "@constants/meApps";
 import { hasAnyLeaveTab } from "../leaveTabs";
 import { LEAVE_PRIVILEGE } from "./leaveTypes";
@@ -120,5 +121,14 @@ export function useLeaveGate(enabled = true): LeaveGate {
     isResolving: enabled && userInfo.isPending,
     isPeopleOps,
     isLead,
+  };
+}
+
+/** Rail and landing facts. Role flags stay on LeaveGate. */
+export function leaveVisibility(gate: LeaveGate): VisibilityAnswer {
+  return {
+    canSee: (id) => gate.canSee(id),
+    resolving: gate.isResolving,
+    retry: () => undefined,
   };
 }

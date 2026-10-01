@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { useEffect } from "react";
 import { describeError } from "@api/errors";
 import { SIGNING_OUT_EVENT } from "@constants/appEvents";
@@ -146,5 +147,14 @@ export function useUmtGate(enabled = true): UmtGate {
     isError: userInfo.isError && !hasData,
     errorMessage: userInfo.isError && !hasData ? describeError(userInfo.error) : undefined,
     retry: () => void userInfo.refetch(),
+  };
+}
+
+/** Product Management is an admin section. A failed read hides it; the landing does not retry. */
+export function umtVisibility(gate: UmtGate): VisibilityAnswer {
+  return {
+    canSee: () => gate.isAdmin && !gate.isResolving,
+    resolving: gate.isResolving,
+    retry: () => undefined,
   };
 }

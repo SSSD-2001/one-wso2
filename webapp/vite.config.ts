@@ -34,9 +34,11 @@ import path from "path";
 // token exchange + Drive API calls they make, and frame-src for the
 // Picker's own iframe (hosted on docs.google.com, not inline).
 //
-// Sales plays meeting recordings in a <video> streamed straight from drive-service's
-// internal Choreo endpoint (meet-app-backend's `playbackBaseUrl`), whose host differs per
-// environment — so media-src takes a wildcard. 
+// Sales plays meeting recordings in a <video> whose src is the signed URL returned by
+// the Sales backend's playback endpoint (ONE_WSO2_REVOPS_BACKEND_URL, then
+// /meetings/{id}/playback). That URL's host differs per environment, so media-src takes
+// wildcards: *.choreoapis.dev for a Choreo default URL, and *.wso2.com for the API
+// gateway's wso2.com domain (the same *.wso2.com connect-src already trusts).
 const CSP = [
   "default-src 'self'",
   "script-src 'self' https://accounts.google.com https://apis.google.com",
@@ -44,7 +46,7 @@ const CSP = [
   "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net",
   "font-src 'self' data: https://wso2.cachefly.net",
   "connect-src 'self' https://*.wso2.com https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com",
-  "media-src 'self' https://*.choreoapis.dev",
+  "media-src 'self' https://*.choreoapis.dev https://*.wso2.com",
   "frame-src 'self' blob: data: https://*.asgardeo.io https://docs.google.com https://accounts.google.com",
   "object-src 'none'",
   "base-uri 'self'",
