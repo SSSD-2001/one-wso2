@@ -35,6 +35,7 @@ import {
     consumePendingOAuthCode,
     consumeStoredGitHubConnectResult,
     resolveGitHubConnection,
+    restorePendingOAuthCode,
     startGitHubOAuth,
     type GitHubConnectResult,
 } from "../github/githubOAuth";
@@ -71,11 +72,20 @@ export default function InfraHomePage() {
     
         const code = consumePendingOAuthCode();
         if (!code) return;
-    
+
         setConnecting(true);
         void (async () => {
+            let accessToken: string;
             try {
-                const accessToken = await getAccessToken();
+                accessToken = await getAccessToken();
+            } catch (error) {
+                restorePendingOAuthCode(code);
+                setConnectError(describeError(error));
+                setConnecting(false);
+                return;
+            }
+
+            try {
                 const result = await authedPost<GitHubVerifyResponse>(
                     infraServiceUrls.githubVerifyAndPersistUser,
                     accessToken,

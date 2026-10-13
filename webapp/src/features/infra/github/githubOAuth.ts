@@ -92,6 +92,10 @@ export function consumePendingOAuthCode(): string | null {
   return code;
 }
 
+export function restorePendingOAuthCode(code: string): void {
+    sessionStorage.setItem(CODE_KEY, code);
+}
+
 export function consumeStoredGitHubConnectResult(): GitHubConnectResult | null {
   const raw = sessionStorage.getItem(RESULT_KEY);
   if (!raw) return null;
