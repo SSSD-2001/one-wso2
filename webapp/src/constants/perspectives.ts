@@ -802,7 +802,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   ? [
       {
         key: "infra",
-        label: "Infra Portal",
+        label: "Infrastructure",
         icon: ServerIcon,
         access: true,
         path: "/infra",

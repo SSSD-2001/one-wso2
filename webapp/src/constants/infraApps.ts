@@ -20,7 +20,7 @@ import type { MenuApp } from "@constants/appMenu";
 export const INFRA_APPS: readonly MenuApp[] = [
   {
     key: "github",
-    name: "GitHub",
+    name: "Infra Portal",
     icon: GitHub,
     alwaysGroup: true,
     purpose: "Connect GitHub, request repositories, and review those requests.",

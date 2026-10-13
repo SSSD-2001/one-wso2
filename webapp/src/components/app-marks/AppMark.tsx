@@ -258,6 +258,24 @@ export function LegalMark({ size }: MarkProps) {
   );
 }
 
+/** Infrastructure — two stacked server units. */
+export function InfrastructureMark({ size }: MarkProps) {
+  const t = appMarkTones("infra")!;
+
+  return (
+    <Svg size={size}>
+      <rect x="5" y="7" width="38" height="15" rx="4" fill={t.field} />
+      <rect x="5" y="26" width="38" height="15" rx="4" fill={t.field} />
+
+      <rect x="10" y="12" width="19" height="5" rx="2.5" fill={t.lead} />
+      <rect x="10" y="31" width="19" height="5" rx="2.5" fill={t.lead} />
+
+      <circle cx="36" cy="14.5" r="2.5" fill={t.lead} />
+      <circle cx="36" cy="33.5" r="2.5" fill={t.lead} />
+    </Svg>
+  );
+}
+
 /**
  * Engineering — a terminal window: the body in `field`, the title bar in
  * `lead`, and a `>_` prompt in `detail`.

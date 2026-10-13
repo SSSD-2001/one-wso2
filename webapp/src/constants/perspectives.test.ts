@@ -235,6 +235,7 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(keys(PERSPECTIVES)).toContain("infra");
       expect(keys(reachablePerspectives())).toContain("infra");
       expect(findPerspectiveByPath("/infra")?.key).toBe("infra");
+      expect(findPerspectiveByPath("/infra")?.label).toBe("Infrastructure");
     });
   });
 
