@@ -72,7 +72,11 @@ describe("InfraHomePage", () => {
       "href",
       "/infra/github/repository-requests",
     );
-    expect(screen.getAllByText("Not here yet")).toHaveLength(6);
+    expect(screen.getByRole("link", { name: "Open my requests" })).toHaveAttribute(
+      "href",
+      "/infra/github/my-requests",
+    );
+    expect(screen.getAllByText("Not here yet")).toHaveLength(4);
 
     for (const [id, label] of Object.entries(ITEM_LABELS)) {
       const el = document.getElementById(id);
