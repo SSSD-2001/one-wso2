@@ -84,3 +84,61 @@ export interface GitHubVerifyResponse {
     githubUserId?: string | null;
     githubUsername?: string | null;
 }
+export type InfraRequestState = "Pending" | "Approved" | "Rejected";
+
+export interface InfraRepositoryRequest {
+  id: number;
+  email: string;
+  leadEmail: string;
+  requirement: string;
+  ccList: string;
+  repoName: string;
+  organizationId: number;
+  organizationName: string;
+  organizationVisibility?: string;
+  repoType: string;
+  description: string;
+  enableIssues: string;
+  websiteUrl: string | null;
+  topics: string;
+  prProtection: string;
+  teams: string;
+  enableTriageWso2All: string;
+  enableTriageWso2AllInterns: string;
+  disableTriageReason: string;
+  cicdRequirement?: string;
+  jenkinsJobType?: string | null;
+  jenkinsGroupId?: string | null;
+  azureDevopsOrg?: string | null;
+  azureDevopsProject?: string | null;
+  state: InfraRequestState;
+  timestamp: string;
+  updatedAt: string | null;
+}
+
+export interface InfraRequestComment {
+  commentId: number;
+  requestId: number;
+  authorEmail: string;
+  commentText: string;
+  createdAt: string;
+}
+
+export interface InfraRepositoryRequestList {
+  totalCount: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  repositoryRequests: InfraRepositoryRequest[];
+}
+
+export interface InfraAccessRequest {
+  id: number;
+  organizationName: string;
+  repoName: string;
+  permission: string;
+  justification: string;
+  state: InfraRequestState;
+  timestamp?: string;
+  updatedAt?: string | null;
+}

@@ -17,6 +17,59 @@
 import type { AccessStepValues } from "./accessStep";
 import type { GeneralStepValues } from "./generalStep";
 import { sanitizeTopics, websiteWithScheme, type RepositoryStepValues } from "./repositoryStep";
+import type { InfraRepositoryRequest } from "../api/infraTypes";
+
+export interface RepositoryRequestUpdate {
+  id: number;
+  state: "Pending";
+  lead_email?: string;
+  requirement?: string;
+  ccList?: string;
+  repoName?: string;
+  organizationId?: number;
+  repoType?: string;
+  description?: string;
+  enableIssues?: string;
+  websiteUrl?: string | null;
+  topics?: string;
+  prProtection?: string;
+  teams?: string;
+  enableTriageWso2All?: string;
+  enableTriageWso2AllInterns?: string;
+  disableTriageReason?: string;
+}
+
+export function toRepositoryRequestUpdate(
+  original: InfraRepositoryRequest,
+  general: GeneralStepValues,
+  repository: RepositoryStepValues,
+  access: AccessStepValues,
+): RepositoryRequestUpdate {
+  const next = toRepositoryRequestCreate(general, repository, access);
+  const body: RepositoryRequestUpdate = { id: original.id, state: "Pending" };
+  if (next.leadEmail !== original.leadEmail) body.lead_email = next.leadEmail;
+  if (next.requirement !== original.requirement) body.requirement = next.requirement;
+  if (next.ccList !== original.ccList) body.ccList = next.ccList;
+  if (next.repoName !== original.repoName) body.repoName = next.repoName;
+  if (next.organizationId !== original.organizationId) body.organizationId = next.organizationId;
+  if (next.repoType !== original.repoType) body.repoType = next.repoType;
+  if (next.description !== original.description) body.description = next.description;
+  if (next.enableIssues !== original.enableIssues) body.enableIssues = next.enableIssues;
+  if ((next.websiteUrl ?? "") !== (original.websiteUrl ?? "")) body.websiteUrl = next.websiteUrl;
+  if (next.topics !== original.topics) body.topics = next.topics;
+  if (next.prProtection !== original.prProtection) body.prProtection = next.prProtection;
+  if (next.teams !== original.teams) body.teams = next.teams;
+  if (next.enableTriageWso2All !== original.enableTriageWso2All) {
+    body.enableTriageWso2All = next.enableTriageWso2All;
+  }
+  if (next.enableTriageWso2AllInterns !== original.enableTriageWso2AllInterns) {
+    body.enableTriageWso2AllInterns = next.enableTriageWso2AllInterns;
+  }
+  if (next.disableTriageReason !== original.disableTriageReason) {
+    body.disableTriageReason = next.disableTriageReason;
+  }
+  return body;
+}
 
 export interface RepositoryRequestCreate {
   email: string;
