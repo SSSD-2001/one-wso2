@@ -44,7 +44,7 @@ export function toRepositoryRequestUpdate(
   general: GeneralStepValues,
   repository: RepositoryStepValues,
   access: AccessStepValues,
-): RepositoryRequestUpdate {
+): RepositoryRequestUpdate | null {
   const next = toRepositoryRequestCreate(general, repository, access);
   const body: RepositoryRequestUpdate = { id: original.id, state: "Pending" };
   if (next.leadEmail !== original.leadEmail) body.lead_email = next.leadEmail;
@@ -68,6 +68,8 @@ export function toRepositoryRequestUpdate(
   if (next.disableTriageReason !== original.disableTriageReason) {
     body.disableTriageReason = next.disableTriageReason;
   }
+  const changed = Object.keys(body).filter((key) => key !== "id" && key !== "state");
+  if (changed.length === 0) return null;
   return body;
 }
 

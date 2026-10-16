@@ -224,7 +224,7 @@ function AccessTab() {
     () => [
       { field: "id", headerName: "Id", width: 70 },
       { field: "repoName", headerName: "Repository Name", flex: 1.4, minWidth: 160 },
-      { field: "organizationName", headerName: "GitHub Organization", flex: 1, minWidth: 140 },
+      { field: "orgName", headerName: "GitHub Organization", flex: 1, minWidth: 140 },
       { field: "permission", headerName: "Permission", width: 120 },
       { field: "justification", headerName: "Justification", flex: 1.6, minWidth: 180 },
       {
@@ -243,7 +243,7 @@ function AccessTab() {
           <RowActions
             onVisit={
               params.row.state === "Approved"
-                ? () => visitRepository(params.row.organizationName, params.row.repoName)
+                ? () => visitRepository(params.row.orgName, params.row.repoName)
                 : undefined
             }
           />

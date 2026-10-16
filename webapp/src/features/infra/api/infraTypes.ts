@@ -134,7 +134,7 @@ export interface InfraRepositoryRequestList {
 
 export interface InfraAccessRequest {
   id: number;
-  organizationName: string;
+  orgName: string;
   repoName: string;
   permission: string;
   justification: string;
