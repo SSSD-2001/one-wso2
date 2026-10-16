@@ -134,6 +134,11 @@ function OrganizationsCard() {
           {notice}
         </Alert>
       )}
+      {sync.error != null && (
+        <Alert severity="error" onClose={() => sync.reset()}>
+          {describeError(sync.error)}
+        </Alert>
+      )}
       <SettingsGrid
         rows={rows}
         loading={organizations.isFetching}
@@ -158,7 +163,10 @@ function OrganizationsCard() {
             renderCell: (params) => (
               <RowActions
                 onEdit={() => setEditingId(params.row.organizationId)}
-                onDelete={() => setDeleting(params.row)}
+                onDelete={() => {
+                  remove.reset();
+                  setDeleting(params.row);
+                }}
                 onSync={() => sync.mutate(params.row.organizationName)}
               />
             ),
@@ -197,11 +205,23 @@ function OrganizationsCard() {
       <InfraConfirmDialog
         open={deleting !== null}
         title="Delete Organization"
-        body={`Delete ${deleting?.organizationName ?? "this organization"}?`}
+        body={
+          <>
+            {`Delete ${deleting?.organizationName ?? "this organization"}?`}
+            {remove.error != null && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                {describeError(remove.error)}
+              </Alert>
+            )}
+          </>
+        }
         confirmLabel="Delete"
         tone="danger"
         busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          remove.reset();
+          setDeleting(null);
+        }}
         onConfirm={() => {
           if (!deleting) return;
           remove.mutate(deleting.organizationId, { onSuccess: () => setDeleting(null) });
@@ -229,7 +249,13 @@ function LeadsCard() {
           { field: "leadEmail", headerName: "Lead Email", flex: 1.2, minWidth: 160 },
           { field: "teamName", headerName: "Team Name", flex: 1, minWidth: 120 },
           actionColumn<InfraLead>((row) => (
-            <RowActions onEdit={() => setEditing(row)} onDelete={() => setDeleting(row)} />
+            <RowActions
+              onEdit={() => setEditing(row)}
+              onDelete={() => {
+                remove.reset();
+                setDeleting(row);
+              }}
+            />
           )),
         ]}
       />
@@ -256,11 +282,23 @@ function LeadsCard() {
       <InfraConfirmDialog
         open={deleting !== null}
         title="Delete Functional Lead"
-        body={`Delete ${deleting?.leadEmail ?? "this lead"}?`}
+        body={
+          <>
+            {`Delete ${deleting?.leadEmail ?? "this lead"}?`}
+            {remove.error != null && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                {describeError(remove.error)}
+              </Alert>
+            )}
+          </>
+        }
         confirmLabel="Delete"
         tone="danger"
         busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          remove.reset();
+          setDeleting(null);
+        }}
         onConfirm={() => {
           if (!deleting) return;
           remove.mutate(deleting.leadId, { onSuccess: () => setDeleting(null) });
@@ -287,7 +325,13 @@ function TopicsCard() {
         columns={[
           { field: "topicName", headerName: "Topic Name", flex: 1, minWidth: 140 },
           actionColumn<InfraTopic>((row) => (
-            <RowActions onEdit={() => setEditing(row)} onDelete={() => setDeleting(row)} />
+            <RowActions
+              onEdit={() => setEditing(row)}
+              onDelete={() => {
+                remove.reset();
+                setDeleting(row);
+              }}
+            />
           )),
         ]}
       />
@@ -313,11 +357,23 @@ function TopicsCard() {
       <InfraConfirmDialog
         open={deleting !== null}
         title="Delete Topic"
-        body={`Delete ${deleting?.topicName ?? "this topic"}?`}
+        body={
+          <>
+            {`Delete ${deleting?.topicName ?? "this topic"}?`}
+            {remove.error != null && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                {describeError(remove.error)}
+              </Alert>
+            )}
+          </>
+        }
         confirmLabel="Delete"
         tone="danger"
         busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          remove.reset();
+          setDeleting(null);
+        }}
         onConfirm={() => {
           if (!deleting) return;
           remove.mutate(deleting.topicId, { onSuccess: () => setDeleting(null) });
@@ -345,7 +401,13 @@ function DefaultTeamsCard() {
           { field: "teamName", headerName: "Team Name", flex: 1, minWidth: 140 },
           { field: "permissionLevel", headerName: "Permission", width: 120 },
           actionColumn<InfraDefaultTeam>((row) => (
-            <RowActions onEdit={() => setEditing(row)} onDelete={() => setDeleting(row)} />
+            <RowActions
+              onEdit={() => setEditing(row)}
+              onDelete={() => {
+                remove.reset();
+                setDeleting(row);
+              }}
+            />
           )),
         ]}
       />
@@ -369,11 +431,23 @@ function DefaultTeamsCard() {
       <InfraConfirmDialog
         open={deleting !== null}
         title="Delete Default Team"
-        body={`Delete ${deleting?.teamName ?? "this team"}?`}
+        body={
+          <>
+            {`Delete ${deleting?.teamName ?? "this team"}?`}
+            {remove.error != null && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                {describeError(remove.error)}
+              </Alert>
+            )}
+          </>
+        }
         confirmLabel="Delete"
         tone="danger"
         busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          remove.reset();
+          setDeleting(null);
+        }}
         onConfirm={() => {
           if (!deleting) return;
           remove.mutate(deleting.teamId, { onSuccess: () => setDeleting(null) });
