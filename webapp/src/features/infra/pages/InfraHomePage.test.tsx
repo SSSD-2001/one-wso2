@@ -15,6 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
@@ -22,6 +23,9 @@ import type { InfraGate } from "@features/infra/api/useInfraGate";
 
 vi.mock("@config/apiConfig", () => ({
   isInfraBackendConfigured: () => true,
+  isGitHubOAuthConfigured: () => false,
+  infraServiceUrls: {},
+  infraBackendUrl: "",
 }));
 
 const gate = vi.hoisted(() => ({ value: {} as InfraGate }));
@@ -53,10 +57,13 @@ const ITEM_LABELS: Record<string, string> = {
 
 function renderHome(g: Partial<InfraGate> = {}) {
   gate.value = { ...AUTHORIZED, ...g };
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
-    <InfraHomePage />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <InfraHomePage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

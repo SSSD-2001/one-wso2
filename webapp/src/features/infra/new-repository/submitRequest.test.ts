@@ -81,8 +81,7 @@ describe("toRepositoryRequestUpdate", () => {
     expect(body).toEqual({ id: 7, state: "Pending", requirement: "A clearer need" });
   });
 
-  it("still marks the request pending when nothing else changed", () => {
-    const body = toRepositoryRequestUpdate(original, general, repository, access);
-    expect(body).toEqual({ id: 7, state: "Pending" });
+  it("does not produce an update when nothing changed", () => {
+    expect(toRepositoryRequestUpdate(original, general, repository, access)).toBeNull();
   });
 });

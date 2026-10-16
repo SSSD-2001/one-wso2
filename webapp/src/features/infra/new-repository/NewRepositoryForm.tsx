@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -115,22 +115,7 @@ export default function NewRepositoryForm({
   const createRequest = useCreateRepositoryRequest();
   const updateRequest = useUpdateRepositoryRequest();
   const saving = request ? updateRequest : createRequest;
-  const { showSuccess } = useNotifications();
-
-  useEffect(() => {
-    if (!request) return;
-    const org = organizations.data?.find((item) => item.organizationId === request.organizationId);
-    if (!org) return;
-    setRepository((current) =>
-      current.organizationVisibility
-        ? current
-        : {
-            ...current,
-            organizationVisibility: org.organizationVisibility,
-            organizationPlan: org.organizationPlan,
-          },
-    );
-  }, [organizations.data, request]);
+  const { showSuccess, showWarning } = useNotifications();
 
   const values: GeneralStepValues = {
     email: userInfo.data?.workEmail ?? "",
@@ -141,8 +126,19 @@ export default function NewRepositoryForm({
   const errors = generalStepErrors(values);
   const leadOptions = leads.data ?? [];
   const employeeEmails = (employees.data ?? []).map((employee) => employee.workEmail);
-  const repositoryErrors = repositoryStepErrors(repository);
-  const accessValues: AccessStepValues = { ...access, repoType: repository.repoType };
+  const editOrg = request
+    ? organizations.data?.find((item) => item.organizationId === repository.organizationId)
+    : undefined;
+  const repositoryValues =
+    editOrg && !repository.organizationVisibility
+      ? {
+          ...repository,
+          organizationVisibility: editOrg.organizationVisibility,
+          organizationPlan: editOrg.organizationPlan,
+        }
+      : repository;
+  const repositoryErrors = repositoryStepErrors(repositoryValues);
+  const accessValues: AccessStepValues = { ...access, repoType: repositoryValues.repoType };
   const accessErrors = accessStepErrors(accessValues);
 
   const resetForm = () => {
@@ -178,7 +174,13 @@ export default function NewRepositoryForm({
 
   const confirm = () => {
     if (request) {
-      updateRequest.mutate(toRepositoryRequestUpdate(request, values, repository, accessValues), {
+      const body = toRepositoryRequestUpdate(request, values, repositoryValues, accessValues);
+      if (!body) {
+        setConfirmOpen(false);
+        showWarning("No changes were made to the repository request.");
+        return;
+      }
+      updateRequest.mutate(body, {
         onSuccess: () => {
           showSuccess("Repository request updated.");
           setConfirmOpen(false);
@@ -187,7 +189,7 @@ export default function NewRepositoryForm({
       });
       return;
     }
-    createRequest.mutate(toRepositoryRequestCreate(values, repository, accessValues), {
+    createRequest.mutate(toRepositoryRequestCreate(values, repositoryValues, accessValues), {
       onSuccess: () => {
         showSuccess("Repository request submitted.");
         resetForm();
@@ -320,19 +322,19 @@ export default function NewRepositoryForm({
         </Stack>
       ) : step === 1 ? (
         <RepositoryStep
-          values={repository}
+          values={repositoryValues}
           showErrors={repositoryTried}
           onChange={(patch) => {
             setRepository((current) => ({ ...current, ...patch }));
-            if (patch.organizationName !== undefined && patch.organizationName !== repository.organizationName) {
+            if (patch.organizationName !== undefined && patch.organizationName !== repositoryValues.organizationName) {
               setAccess((current) => ({ ...current, teams: [] }));
             }
           }}
         />
       ) : (
         <AccessDetailsStep
-          organizationName={repository.organizationName}
-          values={{ ...access, repoType: repository.repoType }}
+          organizationName={repositoryValues.organizationName}
+          values={{ ...access, repoType: repositoryValues.repoType }}
           showErrors={accessTried}
           onChange={(patch) => setAccess((current) => ({ ...current, ...patch }))}
         />
@@ -369,7 +371,7 @@ export default function NewRepositoryForm({
                 : "Are you sure you want to create this request?"}
             </Typography>
             <Typography sx={{ mt: 1 }}>
-              {repository.repoName.trim()} - {repository.organizationName} - {repository.repoType}
+              {repositoryValues.repoName.trim()} - {repositoryValues.organizationName} - {repositoryValues.repoType}
             </Typography>
             {saving.isError && (
               <Alert severity="error" sx={{ mt: 2 }}>
