@@ -52,6 +52,12 @@ export interface InfraOrganization {
     /** 1 when the org allows issues, 0 when it does not. */
     enableIssues: number | boolean;
     defaultTeams?: string | null;
+    teamIds?: string | null;
+}
+export interface InfraDefaultTeam {
+    teamId: number;
+    teamName: string;
+    permissionLevel: string;
 }
 export interface InfraTopic {
     topicId: number;

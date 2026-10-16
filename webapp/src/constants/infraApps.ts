@@ -82,7 +82,8 @@ export const INFRA_APPS: readonly MenuApp[] = [
         {
             id: "infra-github-settings",
             label: "GitHub Settings",
-            desc: "Organizations, topics, leads, default teams, repo-team leads.",
+            desc: "Organizations, topics, functional leads, and default teams.",
+            path: "/infra/admin/github-settings",
             requires: ["admin"],
         },
     ],
