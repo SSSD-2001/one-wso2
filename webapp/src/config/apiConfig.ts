@@ -1435,16 +1435,20 @@ export const infraServiceUrls = {
   employees: `${infraBackendUrl}/employees`,
   // GET /organizations — active GitHub orgs. Drives visibility, plan, issues, and PR protection.
   organizations: `${infraBackendUrl}/organizations`,
+  // GET/PUT/DELETE /organizations/{id} — read, update, or delete one organization.
   organization: (id: number) => `${infraBackendUrl}/organizations/${id}`,
+  // PATCH /organizations/{name}/sync-plan — refresh the organization plan from GitHub.
   organizationSyncPlan: (name: string) =>
     `${infraBackendUrl}/organizations/${encodeURIComponent(name)}/sync-plan`,
-  // GET /leads/{id}, GET /topics/{id} — update and delete one admin row.
+  // PUT/DELETE /leads/{id} — update or delete one functional lead.
   lead: (id: number) => `${infraBackendUrl}/leads/${id}`,
+  // PUT/DELETE /topics/{id} — update or delete one topic.
   topic: (id: number) => `${infraBackendUrl}/topics/${id}`,
   // GET /topics — topic catalog for the creation form.
   topics: `${infraBackendUrl}/topics`,
   // GET /default-teams — teams offered when an admin adds an organization.
   defaultTeams: `${infraBackendUrl}/default-teams`,
+  // PUT/DELETE /default-teams/{id} — update or delete one default team.
   defaultTeam: (id: number) => `${infraBackendUrl}/default-teams/${id}`,
   // GET /teams?organization= — internal committer teams for that GitHub org.
   teams: (organization: string) =>

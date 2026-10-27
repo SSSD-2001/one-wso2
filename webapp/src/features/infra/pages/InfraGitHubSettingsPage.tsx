@@ -128,7 +128,14 @@ function OrganizationsCard() {
   };
 
   return (
-    <SettingsCard title="Organizations" onAdd={() => setAdding(true)} error={organizations.error}>
+    <SettingsCard
+      title="Organizations"
+      onAdd={() => {
+        add.reset();
+        setAdding(true);
+      }}
+      error={organizations.error}
+    >
       {notice && (
         <Alert severity="success" onClose={() => setNotice(null)}>
           {notice}
@@ -162,13 +169,22 @@ function OrganizationsCard() {
             sortable: false,
             renderCell: (params) => (
               <RowActions
-                onEdit={() => setEditingId(params.row.organizationId)}
-                onDelete={() => {
-                  remove.reset();
-                  setDeleting(params.row);
-                }}
-                onSync={() => sync.mutate(params.row.organizationName)}
-              />
+              onEdit={() => {
+                add.reset();
+                update.reset();
+                setEditingId(params.row.organizationId);
+              }}
+              onDelete={() => {
+                remove.reset();
+                setDeleting(params.row);
+              }}
+              onSync={() =>
+                sync.mutate(params.row.organizationName, {
+                  onSuccess: () => setNotice(`Successfully synced ${params.row.organizationName}.`),
+                })
+              }
+              syncing={sync.isPending}
+            />
             ),
           },
         ]}
@@ -240,7 +256,15 @@ function LeadsCard() {
   const [editing, setEditing] = useState<InfraLead | null>(null);
   const [deleting, setDeleting] = useState<InfraLead | null>(null);
   return (
-    <SettingsCard title="Functional Leads" onAdd={() => setAdding(true)} error={leads.error}>
+    <SettingsCard
+      title="Functional Leads"
+      onAdd={() => {
+        add.reset();
+        update.reset();
+        setAdding(true);
+      }}
+      error={leads.error}
+    >
       <SettingsGrid
         rows={leads.data ?? []}
         loading={leads.isFetching}
@@ -250,7 +274,11 @@ function LeadsCard() {
           { field: "teamName", headerName: "Team Name", flex: 1, minWidth: 120 },
           actionColumn<InfraLead>((row) => (
             <RowActions
-              onEdit={() => setEditing(row)}
+            onEdit={() => {
+              add.reset();
+              update.reset();
+              setEditing(row);
+            }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
@@ -317,7 +345,15 @@ function TopicsCard() {
   const [editing, setEditing] = useState<InfraTopic | null>(null);
   const [deleting, setDeleting] = useState<InfraTopic | null>(null);
   return (
-    <SettingsCard title="Repository Topics" onAdd={() => setAdding(true)} error={topics.error}>
+    <SettingsCard
+      title="Repository Topics"
+      onAdd={() => {
+        add.reset();
+        update.reset();
+        setAdding(true);
+      }}
+      error={topics.error}
+    >
       <SettingsGrid
         rows={topics.data ?? []}
         loading={topics.isFetching}
@@ -326,7 +362,11 @@ function TopicsCard() {
           { field: "topicName", headerName: "Topic Name", flex: 1, minWidth: 140 },
           actionColumn<InfraTopic>((row) => (
             <RowActions
-              onEdit={() => setEditing(row)}
+            onEdit={() => {
+              add.reset();
+              update.reset();
+              setEditing(row);
+            }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
@@ -392,7 +432,15 @@ function DefaultTeamsCard() {
   const [editing, setEditing] = useState<InfraDefaultTeam | null>(null);
   const [deleting, setDeleting] = useState<InfraDefaultTeam | null>(null);
   return (
-    <SettingsCard title="Default Teams" onAdd={() => setAdding(true)} error={teams.error}>
+    <SettingsCard
+      title="Default Teams"
+      onAdd={() => {
+        add.reset();
+        update.reset();
+        setAdding(true);
+      }}
+      error={teams.error}
+    >
       <SettingsGrid
         rows={teams.data ?? []}
         loading={teams.isFetching}
@@ -402,7 +450,11 @@ function DefaultTeamsCard() {
           { field: "permissionLevel", headerName: "Permission", width: 120 },
           actionColumn<InfraDefaultTeam>((row) => (
             <RowActions
-              onEdit={() => setEditing(row)}
+            onEdit={() => {
+              add.reset();
+              update.reset();
+              setEditing(row);
+            }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
@@ -534,7 +586,8 @@ function OrganizationDialog({
             )}
             {!organization && visibility === "Private" && (
               <Alert severity="warning">
-                This organization may be on the GitHub Free plan. If so, its visibility will be changed to Public during sync.
+                This organization may be on the GitHub Free plan. If so, its visibility will
+                be changed to Public during sync.
               </Alert>
             )}
             <TextField
@@ -549,7 +602,9 @@ function OrganizationDialog({
               <InputLabel>Visibility</InputLabel>
               <Select label="Visibility" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
                 <MenuItem value="Public">Public</MenuItem>
-                <MenuItem value="Private">Private</MenuItem>
+                <MenuItem value="Private" disabled={freePlan}>
+                  Private{freePlan ? " (not allowed on Free plan)" : ""}
+                </MenuItem>
               </Select>
             </FormControl>
             <FormControl size="small" fullWidth>
@@ -695,7 +750,11 @@ function TeamDialog({
           return;
         }
         setFormError(null);
-        await onSave({ teamName: teamName.trim(), permissionLevel });
+        try {
+          await onSave({ teamName: teamName.trim(), permissionLevel });
+        } catch (caught) {
+          setFormError(describeError(caught));
+        }
       }}
     >
       <TextField
@@ -755,16 +814,20 @@ function NameDialog({
           return;
         }
         setFormError(null);
-        await onSave(value.trim());
+        try {
+          await onSave(value.trim());
+        } catch (caught) {
+          setFormError(describeError(caught));
+        }
       }}
     >
-      <TextField 
-        label={label} 
-        value={value} 
-        onChange={(event) => setValue(event.target.value)} 
-        size="small" 
-        fullWidth 
-        slotProps={{ inputLabel: { shrink: true } }} 
+      <TextField
+        label={label}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        size="small"
+        fullWidth
+        slotProps={{ inputLabel: { shrink: true } }}
       />
     </FieldDialog>
   );
@@ -886,10 +949,12 @@ function RowActions({
   onEdit,
   onDelete,
   onSync,
+  syncing = false,
 }: {
   onEdit: () => void;
   onDelete: () => void;
   onSync?: () => void;
+  syncing?: boolean;
 }) {
   return (
     <Stack direction="row" sx={{ alignItems: "center", height: "100%" }}>
@@ -905,7 +970,13 @@ function RowActions({
       </Tooltip>
       {onSync && (
         <Tooltip title="Sync plan">
-          <IconButton aria-label="Sync plan" size="small" color="info" onClick={onSync}>
+          <IconButton
+            aria-label="Sync plan"
+            size="small"
+            color="info"
+            disabled={syncing}
+            onClick={onSync}
+          >
             <RefreshCwIcon size={16} />
           </IconButton>
         </Tooltip>

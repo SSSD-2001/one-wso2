@@ -31,6 +31,7 @@ function useLocalHeaders() {
       : undefined;
 }
 
+/** Loads default teams offered when an admin adds or edits an organization. */
 export function useInfraDefaultTeams(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
@@ -45,6 +46,7 @@ export function useInfraDefaultTeams(enabled = true) {
   });
 }
 
+/** Loads one organization for the edit dialog. Cached as ["infra-organization", id]. */
 export function useInfraOrganization(organizationId: number | null) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
@@ -82,6 +84,7 @@ function useSettingsMutation<TBody>(
   });
 }
 
+/** Fields sent when creating or updating an organization. teamIds are default-team IDs. */
 export type OrganizationWrite = {
   organizationName: string;
   organizationVisibility: string;
@@ -89,6 +92,7 @@ export type OrganizationWrite = {
   teamIds: number[];
 };
 
+/** Creates an organization and refreshes the organizations list. */
 export function useAddOrganization() {
   return useSettingsMutation(
     (body: OrganizationWrite, token, headers) =>
@@ -97,14 +101,16 @@ export function useAddOrganization() {
   );
 }
 
+/** Updates an organization and refreshes the organizations list and that organization's cache. */
 export function useUpdateOrganization() {
   return useSettingsMutation(
     (body: OrganizationWrite & { organizationId: number }, token, headers) =>
       authedPut(infraServiceUrls.organization(body.organizationId), token, body, headers),
-    [["infra-organizations"]],
+    [["infra-organizations"], ["infra-organization"]],
   );
 }
 
+/** Deletes an organization and refreshes the organizations list. */
 export function useDeleteOrganization() {
   return useSettingsMutation(
     (id: number, token, headers) => authedDelete(infraServiceUrls.organization(id), token, headers),
@@ -112,14 +118,16 @@ export function useDeleteOrganization() {
   );
 }
 
+/** Syncs an organization's GitHub plan and refreshes the organizations list and that organization's cache. */
 export function useSyncOrganization() {
   return useSettingsMutation(
     (name: string, token, headers) =>
       authedPatch(infraServiceUrls.organizationSyncPlan(name), token, undefined, headers),
-    [["infra-organizations"]],
+    [["infra-organizations"], ["infra-organization"]],
   );
 }
 
+/** Creates a functional lead and refreshes the leads list. */
 export function useAddLead() {
   return useSettingsMutation(
     (body: { leadEmail: string; teamName: string }, token, headers) =>
@@ -128,6 +136,7 @@ export function useAddLead() {
   );
 }
 
+/** Updates a functional lead and refreshes the leads list. */
 export function useUpdateLead() {
   return useSettingsMutation(
     (body: { leadId: number; leadEmail: string; teamName: string }, token, headers) =>
@@ -136,6 +145,7 @@ export function useUpdateLead() {
   );
 }
 
+/** Deletes a functional lead and refreshes the leads list. */
 export function useDeleteLead() {
   return useSettingsMutation(
     (id: number, token, headers) => authedDelete(infraServiceUrls.lead(id), token, headers),
@@ -143,6 +153,7 @@ export function useDeleteLead() {
   );
 }
 
+/** Creates a repository topic and refreshes the topics list. */
 export function useAddTopic() {
   return useSettingsMutation(
     (body: { topicName: string }, token, headers) =>
@@ -151,6 +162,7 @@ export function useAddTopic() {
   );
 }
 
+/** Updates a repository topic and refreshes the topics list. */
 export function useUpdateTopic() {
   return useSettingsMutation(
     (body: { topicId: number; topicName: string }, token, headers) =>
@@ -159,6 +171,7 @@ export function useUpdateTopic() {
   );
 }
 
+/** Deletes a repository topic and refreshes the topics list. */
 export function useDeleteTopic() {
   return useSettingsMutation(
     (id: number, token, headers) => authedDelete(infraServiceUrls.topic(id), token, headers),
@@ -166,6 +179,7 @@ export function useDeleteTopic() {
   );
 }
 
+/** Creates a default team and refreshes the default-teams list. */
 export function useAddDefaultTeam() {
   return useSettingsMutation(
     (body: { teamName: string; permissionLevel: string }, token, headers) =>
@@ -174,6 +188,7 @@ export function useAddDefaultTeam() {
   );
 }
 
+/** Updates a default team and refreshes the default-teams list. */
 export function useUpdateDefaultTeam() {
   return useSettingsMutation(
     (body: { teamId: number; teamName: string; permissionLevel: string }, token, headers) =>
@@ -182,6 +197,7 @@ export function useUpdateDefaultTeam() {
   );
 }
 
+/** Deletes a default team and refreshes the default-teams list. */
 export function useDeleteDefaultTeam() {
   return useSettingsMutation(
     (id: number, token, headers) => authedDelete(infraServiceUrls.defaultTeam(id), token, headers),

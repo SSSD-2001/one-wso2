@@ -52,11 +52,13 @@ export interface InfraOrganization {
     /** 1 when the org allows issues, 0 when it does not. */
     enableIssues: number | boolean;
     defaultTeams?: string | null;
+    /** Comma-separated default team IDs, e.g. "1,4". */
     teamIds?: string | null;
 }
 export interface InfraDefaultTeam {
     teamId: number;
     teamName: string;
+    /** GitHub team permission: push, pull, triage, or admin. */
     permissionLevel: string;
 }
 export interface InfraTopic {
