@@ -21,7 +21,7 @@ import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdToken } from "@hooks/useIdToken";
 import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
-import type { InfraAccessRequest, InfraRepositoryRequestList, InfraRequestComment } from "./infraTypes";
+import type { InfraRepositoryRequestList, InfraRequestComment } from "./infraTypes";
 
 function localAssertionHeaders(idToken: string) {
   return infraBackendUrl.startsWith("http://localhost")
@@ -103,25 +103,5 @@ export function useAddRepositoryRequestComment(requestId: number) {
         queryKey: ["infra-repository-request-comments", requestId],
       });
     },
-  });
-}
-
-export function useMyAccessRequests(enabled: boolean) {
-  const { isSignedIn } = useAsgardeo();
-  const getAccessToken = useAccessToken();
-  const getIdToken = useIdToken();
-  const configured = isInfraBackendConfigured();
-  return useQuery<InfraAccessRequest[]>({
-    queryKey: ["infra-my-access-requests"],
-    enabled: enabled && isSignedIn && configured,
-    queryFn: async () => {
-      const accessToken = await getAccessToken();
-      return authedGet<InfraAccessRequest[]>(
-        infraServiceUrls.repositoryAccessRequests,
-        accessToken,
-        localAssertionHeaders(await getIdToken()),
-      );
-    },
-    retry: httpRetry,
   });
 }

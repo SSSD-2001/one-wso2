@@ -1498,14 +1498,9 @@ export const infraServiceUrls = {
     `${infraBackendUrl}/teams?organization=${encodeURIComponent(organization)}`,
   // GET /repository-requests — repository requests for the caller.
   repositoryRequests: `${infraBackendUrl}/repository-requests`,
-  // GET, PATCH /repository-requests/{id} — one creation request, and the edit of a pending one.
-  repositoryRequest: (id: number) =>
-    `${infraBackendUrl}/repository-requests/${id}`,
   // GET, POST /repository-requests/{id}/comments — comment thread on a creation request.
   repositoryRequestComments: (id: number) =>
     `${infraBackendUrl}/repository-requests/${id}/comments`,
-  // GET /repository-access-requests — access requests for the caller.
-  repositoryAccessRequests: `${infraBackendUrl}/repository-access-requests`,
   // POST /github/verify-and-persist-user — verify a GitHub user and persist their information.
   githubVerifyAndPersistUser: `${infraBackendUrl}/github/verify-and-persist-user`,
   // POST /set-default-repository-access — set the default repository access for the caller.

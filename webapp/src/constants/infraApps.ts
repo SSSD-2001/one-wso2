@@ -48,7 +48,7 @@ export const INFRA_APPS: readonly MenuApp[] = [
         {
             id: "infra-github-my-requests",
             label: "My Requests",
-            desc: "Your creation and access requests.",
+            desc: "Your repository creation requests.",
             path: "/infra/github/my-requests",
             requires: ["admin"],
         },

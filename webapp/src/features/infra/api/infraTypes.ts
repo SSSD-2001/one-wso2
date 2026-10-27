@@ -131,14 +131,3 @@ export interface InfraRepositoryRequestList {
   rejectedCount: number;
   repositoryRequests: InfraRepositoryRequest[];
 }
-
-export interface InfraAccessRequest {
-  id: number;
-  orgName: string;
-  repoName: string;
-  permission: string;
-  justification: string;
-  state: InfraRequestState;
-  timestamp?: string;
-  updatedAt?: string | null;
-}
