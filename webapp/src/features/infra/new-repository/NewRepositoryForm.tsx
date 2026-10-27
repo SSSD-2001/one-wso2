@@ -34,36 +34,88 @@ import {
 } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { primaryBtnSx, secondaryBtnSx } from "../components/infraUi";
-import { useInfraEmployees, useInfraLeads } from "../api/useInfraDirectory";
+import { useInfraEmployees, useInfraLeads, useInfraOrganizations } from "../api/useInfraDirectory";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
+import type { InfraRepositoryRequest } from "../api/infraTypes";
 import RepositoryStep from "./RepositoryDetailsStep";
 import { generalStepErrors, type GeneralStepValues } from "./generalStep";
-import { emptyRepositoryStep, repositoryStepErrors, type RepositoryStepValues } from "./repositoryStep";
+import { emptyRepositoryStep, repositoryStepErrors, type RepoType, type RepositoryStepValues } from "./repositoryStep";
 import AccessDetailsStep from "./AccessDetailsStep";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useCreateRepositoryRequest } from "./useCreateRepositoryRequest";
+import { useUpdateRepositoryRequest } from "./useUpdateRepositoryRequest";
 import { accessStepErrors, emptyAccessStep, type AccessStepValues } from "./accessStep";
-import { toRepositoryRequestCreate } from "./submitRequest";
+import { toRepositoryRequestCreate, toRepositoryRequestUpdate } from "./submitRequest";
 import InfraConfirmDialog from "../components/InfraConfirmDialog";
 
 const STEPS = ["General Details", "Repository Details", "Access Details"];
 
-export default function NewRepositoryForm() {
+function splitList(value: string): string[] {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function yesNo(value: string): "Yes" | "No" {
+  return value === "No" ? "No" : "Yes";
+}
+
+function repoTypeOf(value: string): RepoType {
+  return value === "Private" ? "Private" : "Public";
+}
+
+function repositoryFromRequest(request: InfraRepositoryRequest): RepositoryStepValues {
+  return {
+    ...emptyRepositoryStep,
+    organizationId: request.organizationId,
+    organizationName: request.organizationName,
+    repoName: request.repoName,
+    repoType: repoTypeOf(request.repoType),
+    enableIssues: request.enableIssues === "Yes" ? "Yes" : "No",
+    description: request.description,
+    topics: splitList(request.topics),
+    websiteUrl: request.websiteUrl ?? "",
+    prProtection: request.prProtection,
+  };
+}
+
+function accessFromRequest(request: InfraRepositoryRequest): AccessStepValues {
+  return {
+    teams: splitList(request.teams),
+    repoType: repoTypeOf(request.repoType),
+    enableTriageWso2All: yesNo(request.enableTriageWso2All),
+    enableTriageWso2AllInterns: yesNo(request.enableTriageWso2AllInterns),
+    disableTriageReason: request.disableTriageReason || "N/A",
+  };
+}
+
+export default function NewRepositoryForm({
+  request,
+  onSaved,
+}: {
+  request?: InfraRepositoryRequest;
+  onSaved?: () => void;
+} = {}) {
   const userInfo = useInfraUserInfo();
   const leads = useInfraLeads();
   const employees = useInfraEmployees();
+  const organizations = useInfraOrganizations(Boolean(request));
   const [step, setStep] = useState(0);
   const [generalTried, setGeneralTried] = useState(false);
   const [repositoryTried, setRepositoryTried] = useState(false);
-  const [repository, setRepository] = useState<RepositoryStepValues>(emptyRepositoryStep);
-  const [leadEmail, setLeadEmail] = useState("");
-  const [requirement, setRequirement] = useState("");
-  const [ccList, setCcList] = useState<string[]>([]);
-  const [access, setAccess] = useState<AccessStepValues>(emptyAccessStep);
+  const [repository, setRepository] = useState<RepositoryStepValues>(
+    request ? repositoryFromRequest(request) : emptyRepositoryStep,
+  );
+  const [leadEmail, setLeadEmail] = useState(request?.leadEmail ?? "");
+  const [requirement, setRequirement] = useState(request?.requirement ?? "");
+  const [ccList, setCcList] = useState<string[]>(request ? splitList(request.ccList) : []);
+  const [access, setAccess] = useState<AccessStepValues>(
+    request ? accessFromRequest(request) : emptyAccessStep,
+  );
   const [accessTried, setAccessTried] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const createRequest = useCreateRepositoryRequest();
-  const { showSuccess } = useNotifications();
+  const updateRequest = useUpdateRepositoryRequest();
+  const saving = request ? updateRequest : createRequest;
+  const { showSuccess, showWarning } = useNotifications();
 
   const values: GeneralStepValues = {
     email: userInfo.data?.workEmail ?? "",
@@ -74,8 +126,19 @@ export default function NewRepositoryForm() {
   const errors = generalStepErrors(values);
   const leadOptions = leads.data ?? [];
   const employeeEmails = (employees.data ?? []).map((employee) => employee.workEmail);
-  const repositoryErrors = repositoryStepErrors(repository);
-  const accessValues: AccessStepValues = { ...access, repoType: repository.repoType };
+  const editOrg = request
+    ? organizations.data?.find((item) => item.organizationId === repository.organizationId)
+    : undefined;
+  const repositoryValues =
+    editOrg && !repository.organizationVisibility
+      ? {
+          ...repository,
+          organizationVisibility: editOrg.organizationVisibility,
+          organizationPlan: editOrg.organizationPlan,
+        }
+      : repository;
+  const repositoryErrors = repositoryStepErrors(repositoryValues);
+  const accessValues: AccessStepValues = { ...access, repoType: repositoryValues.repoType };
   const accessErrors = accessStepErrors(accessValues);
 
   const resetForm = () => {
@@ -105,12 +168,28 @@ export default function NewRepositoryForm() {
     }
     setAccessTried(true);
     if (Object.keys(accessErrors).length > 0) return;
-    createRequest.reset();
+    if (request && !toRepositoryRequestUpdate(request, values, repositoryValues, accessValues)) {
+      showWarning("No changes were made to the repository request.");
+      return;
+    }
+    saving.reset();
     setConfirmOpen(true);
   };
 
   const confirm = () => {
-    createRequest.mutate(toRepositoryRequestCreate(values, repository, accessValues), {
+    if (request) {
+      const body = toRepositoryRequestUpdate(request, values, repositoryValues, accessValues);
+      if (!body) return;
+      updateRequest.mutate(body, {
+        onSuccess: () => {
+          showSuccess("Repository request updated.");
+          setConfirmOpen(false);
+          onSaved?.();
+        },
+      });
+      return;
+    }
+    createRequest.mutate(toRepositoryRequestCreate(values, repositoryValues, accessValues), {
       onSuccess: () => {
         showSuccess("Repository request submitted.");
         resetForm();
@@ -243,19 +322,19 @@ export default function NewRepositoryForm() {
         </Stack>
       ) : step === 1 ? (
         <RepositoryStep
-          values={repository}
+          values={repositoryValues}
           showErrors={repositoryTried}
           onChange={(patch) => {
             setRepository((current) => ({ ...current, ...patch }));
-            if (patch.organizationName !== undefined && patch.organizationName !== repository.organizationName) {
+            if (patch.organizationName !== undefined && patch.organizationName !== repositoryValues.organizationName) {
               setAccess((current) => ({ ...current, teams: [] }));
             }
           }}
         />
       ) : (
         <AccessDetailsStep
-          organizationName={repository.organizationName}
-          values={{ ...access, repoType: repository.repoType }}
+          organizationName={repositoryValues.organizationName}
+          values={{ ...access, repoType: repositoryValues.repoType }}
           showErrors={accessTried}
           onChange={(patch) => setAccess((current) => ({ ...current, ...patch }))}
         />
@@ -271,28 +350,32 @@ export default function NewRepositoryForm() {
           </Button>
         ) : (
           <Button variant="outlined" color="primary" sx={primaryBtnSx} onClick={openConfirm}>
-            Submit
+            {request ? "Save" : "Submit"}
           </Button>
         )}
       </Box>
       <InfraConfirmDialog
         open={confirmOpen}
-        title="Confirm Repository Request"
-        busy={createRequest.isPending}
-        confirmLabel={createRequest.isPending ? "Submitting…" : "Confirm"}
+        title={request ? "Update Repository Request" : "Confirm Repository Request"}
+        busy={saving.isPending}
+        confirmLabel={
+          saving.isPending ? (request ? "Saving…" : "Submitting…") : "Confirm"
+        }
         onConfirm={confirm}
         onCancel={() => setConfirmOpen(false)}
         body={
           <>
             <Typography sx={{ fontWeight: 700, color: "text.primary" }}>
-              Are you sure you want to create this request?
+              {request
+                ? "Are you sure you want to update this request?"
+                : "Are you sure you want to create this request?"}
             </Typography>
             <Typography sx={{ mt: 1 }}>
-              {repository.repoName.trim()} - {repository.organizationName} - {repository.repoType}
+              {repositoryValues.repoName.trim()} - {repositoryValues.organizationName} - {repositoryValues.repoType}
             </Typography>
-            {createRequest.isError && (
+            {saving.isError && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                {describeError(createRequest.error)}
+                {describeError(saving.error)}
               </Alert>
             )}
           </>

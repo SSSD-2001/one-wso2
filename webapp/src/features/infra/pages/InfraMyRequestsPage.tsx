@@ -22,13 +22,18 @@ import {
   Chip,
   CircularProgress,
   DataGrid,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
   InputAdornment,
   Stack,
   TextField,
   Tooltip,
 } from "@wso2/oxygen-ui";
-import { ExternalLinkIcon, EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ExternalLinkIcon, EyeIcon, PencilIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import NewRepositoryForm from "../new-repository/NewRepositoryForm";
 import { describeError } from "@api/errors";
 import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
@@ -47,7 +52,7 @@ export default function InfraMyRequestsPage() {
     <InfraShell
       eyebrow={INFRA_EYEBROW.github}
       title="My Requests"
-      subtitle="Your repository creation requests."
+      subtitle="View, edit and resubmit your pending requests, and track their decisions."
     >
       {gate.isEmployee ? (
         <CreationTab />
@@ -59,6 +64,7 @@ export default function InfraMyRequestsPage() {
 }
 
 function CreationTab() {
+  const queryClient = useQueryClient();
   const userInfo = useInfraUserInfo();
   const email = userInfo.data?.workEmail ?? "";
   const [page, setPage] = useState(0);
@@ -66,6 +72,7 @@ function CreationTab() {
   const [searchInput, setSearchInput] = useState("");
   const [repoName, setRepoName] = useState("");
   const [viewing, setViewing] = useState<InfraRepositoryRequest | null>(null);
+  const [editing, setEditing] = useState<InfraRepositoryRequest | null>(null);
   const requests = useMyCreationRequests(email, { limit: pageSize, offset: page * pageSize, repoName });
 
   const applySearch = () => {
@@ -102,12 +109,13 @@ function CreationTab() {
       {
         field: "actions",
         headerName: "Actions",
-        width: 100,
+        width: 130,
         sortable: false,
         filterable: false,
         renderCell: (params) => (
           <RowActions
             onView={() => setViewing(params.row)}
+            onEdit={params.row.state === "Pending" ? () => setEditing(params.row) : undefined}
             onVisit={
               params.row.state === "Approved"
                 ? () => visitRepository(params.row.organizationName, params.row.repoName)
@@ -180,6 +188,21 @@ function CreationTab() {
         />
       </Card>
       {viewing && <CreationRequestDialog request={viewing} onClose={() => setViewing(null)} />}
+      {editing && (
+        <Dialog open onClose={() => setEditing(null)} fullWidth maxWidth="md">
+          <DialogTitle>Edit Repository Request</DialogTitle>
+          <DialogContent>
+            <NewRepositoryForm
+              key={editing.id}
+              request={editing}
+              onSaved={() => {
+                setEditing(null);
+                void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </Stack>
   );
 }
@@ -203,9 +226,11 @@ function StateChip({ state }: { state: InfraRequestState }) {
 
 function RowActions({
   onView,
+  onEdit,
   onVisit,
 }: {
   onView?: () => void;
+  onEdit?: () => void;
   onVisit?: () => void;
 }) {
   return (
@@ -214,6 +239,13 @@ function RowActions({
         <Tooltip title="View more">
           <IconButton aria-label="View more" size="small" color="info" onClick={onView}>
             <EyeIcon size={16} />
+          </IconButton>
+        </Tooltip>
+      )}
+      {onEdit && (
+        <Tooltip title="Edit request">
+          <IconButton aria-label="Edit request" size="small" color="primary" onClick={onEdit}>
+            <PencilIcon size={16} />
           </IconButton>
         </Tooltip>
       )}
