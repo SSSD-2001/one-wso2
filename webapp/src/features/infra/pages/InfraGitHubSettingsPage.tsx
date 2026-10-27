@@ -169,22 +169,22 @@ function OrganizationsCard() {
             sortable: false,
             renderCell: (params) => (
               <RowActions
-              onEdit={() => {
-                add.reset();
-                update.reset();
-                setEditingId(params.row.organizationId);
-              }}
-              onDelete={() => {
-                remove.reset();
-                setDeleting(params.row);
-              }}
-              onSync={() =>
-                sync.mutate(params.row.organizationName, {
-                  onSuccess: () => setNotice(`Successfully synced ${params.row.organizationName}.`),
-                })
-              }
-              syncing={sync.isPending}
-            />
+                onEdit={() => {
+                  add.reset();
+                  update.reset();
+                  setEditingId(params.row.organizationId);
+                }}
+                onDelete={() => {
+                  remove.reset();
+                  setDeleting(params.row);
+                }}
+                onSync={() =>
+                  sync.mutate(params.row.organizationName, {
+                    onSuccess: () => setNotice(`Successfully synced ${params.row.organizationName}.`),
+                  })
+                }
+                syncing={sync.isPending}
+              />
             ),
           },
         ]}
@@ -274,11 +274,11 @@ function LeadsCard() {
           { field: "teamName", headerName: "Team Name", flex: 1, minWidth: 120 },
           actionColumn<InfraLead>((row) => (
             <RowActions
-            onEdit={() => {
-              add.reset();
-              update.reset();
-              setEditing(row);
-            }}
+              onEdit={() => {
+                add.reset();
+                update.reset();
+                setEditing(row);
+              }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
@@ -362,11 +362,11 @@ function TopicsCard() {
           { field: "topicName", headerName: "Topic Name", flex: 1, minWidth: 140 },
           actionColumn<InfraTopic>((row) => (
             <RowActions
-            onEdit={() => {
-              add.reset();
-              update.reset();
-              setEditing(row);
-            }}
+              onEdit={() => {
+                add.reset();
+                update.reset();
+                setEditing(row);
+              }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
@@ -450,11 +450,11 @@ function DefaultTeamsCard() {
           { field: "permissionLevel", headerName: "Permission", width: 120 },
           actionColumn<InfraDefaultTeam>((row) => (
             <RowActions
-            onEdit={() => {
-              add.reset();
-              update.reset();
-              setEditing(row);
-            }}
+              onEdit={() => {
+                add.reset();
+                update.reset();
+                setEditing(row);
+              }}
               onDelete={() => {
                 remove.reset();
                 setDeleting(row);
