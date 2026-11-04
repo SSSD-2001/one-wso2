@@ -217,7 +217,9 @@ function ReviewTable({ mode }: { mode: "assigned" | "all" }) {
   );
 
   if (userInfo.isLoading) return <CircularProgress size={24} />;
-  if (userInfo.isError) return <Alert severity="error">{describeError(userInfo.error)}</Alert>;
+  if (userInfo.isError && !userInfo.data) {
+    return <Alert severity="error">{describeError(userInfo.error)}</Alert>;
+  }
   if (mode === "assigned" && !email) {
     return <Alert severity="warning">Your work email is required to load assigned requests.</Alert>;
   }
