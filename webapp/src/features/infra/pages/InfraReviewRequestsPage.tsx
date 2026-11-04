@@ -15,42 +15,34 @@
 // under the License.
 
 import { useMemo, useState } from "react";
+import { Navigate, Outlet } from "react-router";
 import {
   Alert,
   Box,
   Button,
   Card,
-  Chip,
   CircularProgress,
   DataGrid,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
   InputAdornment,
   Stack,
-  Tab,
-  Tabs,
   TextField,
-  Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
 import {
   BanIcon,
   CheckCircleIcon,
-  ExternalLinkIcon,
-  EyeIcon,
-  GavelIcon,
   SearchIcon,
   XIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { INFRA_EYEBROW } from "@constants/infraApps";
+import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import InfraShell from "../components/InfraShell";
 import InfraConfirmDialog from "../components/InfraConfirmDialog";
-import { primaryBtnSx, secondaryBtnSx } from "../components/infraUi";
 import { useInfraGate } from "../api/useInfraGate";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
 import {
@@ -58,23 +50,40 @@ import {
   useRejectRepositoryRequest,
   useReviewCreationRequests,
 } from "../api/useInfraRequests";
-import type { InfraRepositoryRequest, InfraRequestState } from "../api/infraTypes";
+import type { InfraRepositoryRequest } from "../api/infraTypes";
 import CreationRequestDialog, { formatRequestDateTime } from "../my-requests/CreationRequestDialog";
+import {
+  CountChip,
+  RequestRowActions,
+  StateChip,
+  visitRepository,
+} from "../my-requests/requestTableUi";
 
 const PAGE_SIZE = 10;
+export const REVIEW_REQUESTS_BASE = "/infra/github/review-repository-requests";
+
+const ASSIGNED_TAB: RoutedTabDef = { segment: "assigned", label: "Assigned to me" };
+const ALL_TAB: RoutedTabDef = { segment: "all", label: "All Requests" };
 
 export default function InfraReviewRequestsPage() {
   const gate = useInfraGate();
   const canReview = gate.isApprover || gate.isAdmin;
+  const tabs = gate.isAdmin ? [ASSIGNED_TAB, ALL_TAB] : [ASSIGNED_TAB];
 
   return (
     <InfraShell
-      eyebrow={INFRA_EYEBROW.github}
       title="Review Repository Requests"
       subtitle="Review, comment on and approve or reject repository requests."
     >
       {canReview ? (
-        <ReviewTabs isAdmin={gate.isAdmin} />
+        <Stack spacing={0}>
+          <RoutedTabs
+            basePath={REVIEW_REQUESTS_BASE}
+            tabs={tabs}
+            ariaLabel="Review repository requests"
+          />
+          <Outlet />
+        </Stack>
       ) : (
         <Alert severity="warning">Only approvers and admins can review repository requests.</Alert>
       )}
@@ -82,22 +91,18 @@ export default function InfraReviewRequestsPage() {
   );
 }
 
-function ReviewTabs({ isAdmin }: { isAdmin: boolean }) {
-  const [tab, setTab] = useState(0);
-  return (
-    <Stack spacing={2}>
-      <Tabs
-        value={tab}
-        onChange={(_event, next) => setTab(next)}
-        sx={{ borderBottom: 1, borderColor: "divider" }}
-      >
-        <Tab label="Assigned to me" />
-        {isAdmin && <Tab label="All Requests" />}
-      </Tabs>
-      {tab === 0 && <ReviewTable mode="assigned" />}
-      {tab === 1 && isAdmin && <ReviewTable mode="all" />}
-    </Stack>
-  );
+export function InfraReviewRequestsIndex() {
+  return <Navigate to="assigned" replace />;
+}
+
+export function InfraReviewAssignedTab() {
+  return <ReviewTable mode="assigned" />;
+}
+
+export function InfraReviewAllTab() {
+  const gate = useInfraGate();
+  if (!gate.isAdmin) return <Navigate to="../assigned" replace />;
+  return <ReviewTable mode="all" />;
 }
 
 function ReviewTable({ mode }: { mode: "assigned" | "all" }) {
@@ -199,7 +204,7 @@ function ReviewTable({ mode }: { mode: "assigned" | "all" }) {
         sortable: false,
         filterable: false,
         renderCell: (params) => (
-          <RowActions
+          <RequestRowActions
             onView={() => setViewing(params.row)}
             onDecide={
               params.row.state === "Pending" ? () => setDecision(params.row) : undefined
@@ -344,119 +349,42 @@ function ReviewTable({ mode }: { mode: "assigned" | "all" }) {
         }
       />
 
-      <Dialog
+      <InfraConfirmDialog
         open={Boolean(rejectTarget)}
-        onClose={() => !reject.isPending && setRejectTarget(null)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Reject Request</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ fontWeight: 700, mb: 1 }}>
-            Please note that the repository creation request should be rejected only if the
-            requirement is no longer valid and this decision cannot be reversed.
-          </Typography>
-          <Typography sx={{ mb: 2, color: "text.secondary" }}>
-            Please provide a comment for rejection.
-          </Typography>
-          <TextField
-            label="Rejection Comment"
-            value={rejectComment}
-            onChange={(event) => setRejectComment(event.target.value)}
-            required
-            fullWidth
-            multiline
-            rows={3}
-            size="small"
-            helperText="Required for rejection"
-            InputLabelProps={{ shrink: true }}
-          />
-          {reject.isError && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              {describeError(reject.error)}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setRejectTarget(null)}
-            disabled={reject.isPending}
-            sx={secondaryBtnSx}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={confirmReject}
-            disabled={reject.isPending || !rejectComment.trim()}
-            variant="contained"
-            color="error"
-            sx={primaryBtnSx}
-          >
-            {reject.isPending ? "Rejecting…" : "Reject"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title="Reject Request"
+        tone="danger"
+        confirmLabel={reject.isPending ? "Rejecting…" : "Reject"}
+        busy={reject.isPending}
+        confirmDisabled={!rejectComment.trim()}
+        onConfirm={confirmReject}
+        onCancel={() => setRejectTarget(null)}
+        body={
+          <>
+            <Typography sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}>
+              Please note that the repository creation request should be rejected only if the
+              requirement is no longer valid and this decision cannot be reversed.
+            </Typography>
+            <Typography sx={{ mb: 2 }}>Please provide a comment for rejection.</Typography>
+            <TextField
+              label="Rejection Comment"
+              value={rejectComment}
+              onChange={(event) => setRejectComment(event.target.value)}
+              required
+              fullWidth
+              multiline
+              rows={3}
+              size="small"
+              helperText="Required for rejection"
+              InputLabelProps={{ shrink: true }}
+            />
+            {reject.isError && (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {describeError(reject.error)}
+              </Alert>
+            )}
+          </>
+        }
+      />
     </Stack>
-  );
-}
-
-function CountChip({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: "info" | "warning" | "success" | "error";
-}) {
-  return <Chip size="small" variant="outlined" color={color} label={`${label}: ${count}`} />;
-}
-
-function StateChip({ state }: { state: InfraRequestState }) {
-  const color = state === "Approved" ? "success" : state === "Rejected" ? "error" : "warning";
-  return <Chip size="small" variant="outlined" color={color} label={state} />;
-}
-
-function RowActions({
-  onView,
-  onDecide,
-  onVisit,
-}: {
-  onView?: () => void;
-  onDecide?: () => void;
-  onVisit?: () => void;
-}) {
-  return (
-    <Stack direction="row" sx={{ alignItems: "center", height: "100%" }}>
-      {onView && (
-        <Tooltip title="View more">
-          <IconButton aria-label="View more" size="small" color="info" onClick={onView}>
-            <EyeIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-      {onDecide && (
-        <Tooltip title="Take Decision">
-          <IconButton aria-label="Take Decision" size="small" color="primary" onClick={onDecide}>
-            <GavelIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-      {onVisit && (
-        <Tooltip title="Visit Repository">
-          <IconButton aria-label="Visit Repository" size="small" color="success" onClick={onVisit}>
-            <ExternalLinkIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Stack>
-  );
-}
-
-function visitRepository(organizationName: string, repoName: string) {
-  window.open(
-    `https://github.com/${organizationName}/${repoName}`,
-    "_blank",
-    "noopener,noreferrer",
   );
 }

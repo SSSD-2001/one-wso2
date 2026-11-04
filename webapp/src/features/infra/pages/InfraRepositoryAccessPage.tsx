@@ -33,7 +33,6 @@ import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
 import { authedGet, authedPut } from "@api/http";
 import { describeError } from "@api/errors";
 import { infraServiceUrls } from "@config/apiConfig";
-import { INFRA_EYEBROW } from "@constants/infraApps";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdTokenClaims } from "@features/security/grc/hooks/useIdTokenClaims";
 import InfraShell from "../components/InfraShell";
@@ -51,7 +50,6 @@ export default function InfraRepositoryAccessPage() {
 
     return (
         <InfraShell
-        eyebrow={INFRA_EYEBROW.github}
         title="Repository Access"
         subtitle="Default org and team repositories granted for your account."
         >

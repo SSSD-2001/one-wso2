@@ -240,7 +240,11 @@ import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPa
 import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
 import InfraGitHubSettingsPage from "@features/infra/pages/InfraGitHubSettingsPage";
 import InfraMyRequestsPage from "@features/infra/pages/InfraMyRequestsPage";
-import InfraReviewRequestsPage from "@features/infra/pages/InfraReviewRequestsPage";
+import InfraReviewRequestsPage, {
+  InfraReviewAllTab,
+  InfraReviewAssignedTab,
+  InfraReviewRequestsIndex,
+} from "@features/infra/pages/InfraReviewRequestsPage";
 
 export default function App() {
   return (
@@ -282,7 +286,11 @@ export default function App() {
           <Route
             path="infra/github/review-repository-requests"
             element={<InfraReviewRequestsPage />}
-          />
+          >
+            <Route index element={<InfraReviewRequestsIndex />} />
+            <Route path="assigned" element={<InfraReviewAssignedTab />} />
+            <Route path="all" element={<InfraReviewAllTab />} />
+          </Route>
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
           {/* My Team — a lead's reporting chain, ported from people-app. */}

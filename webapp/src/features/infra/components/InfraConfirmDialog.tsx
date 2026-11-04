@@ -33,6 +33,7 @@ export default function InfraConfirmDialog({
   confirmLabel = "Confirm",
   tone = "primary",
   busy,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: {
@@ -42,6 +43,7 @@ export default function InfraConfirmDialog({
   confirmLabel?: string;
   tone?: "primary" | "danger";
   busy?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -59,7 +61,7 @@ export default function InfraConfirmDialog({
         </Button>
         <Button
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || confirmDisabled}
           variant="contained"
           color={tone === "danger" ? "error" : "primary"}
           autoFocus

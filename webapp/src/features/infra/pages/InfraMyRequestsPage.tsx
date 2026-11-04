@@ -19,7 +19,6 @@ import {
   Alert,
   Box,
   Card,
-  Chip,
   CircularProgress,
   DataGrid,
   Dialog,
@@ -29,19 +28,23 @@ import {
   InputAdornment,
   Stack,
   TextField,
-  Tooltip,
 } from "@wso2/oxygen-ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { ExternalLinkIcon, EyeIcon, PencilIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
 import { describeError } from "@api/errors";
-import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
 import { useInfraGate } from "../api/useInfraGate";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
 import { useMyCreationRequests } from "../api/useInfraRequests";
-import type { InfraRepositoryRequest, InfraRequestState } from "../api/infraTypes";
+import type { InfraRepositoryRequest } from "../api/infraTypes";
 import CreationRequestDialog, { formatRequestDateTime } from "../my-requests/CreationRequestDialog";
+import {
+  CountChip,
+  RequestRowActions,
+  StateChip,
+  visitRepository,
+} from "../my-requests/requestTableUi";
 
 const PAGE_SIZE = 10;
 
@@ -50,7 +53,6 @@ export default function InfraMyRequestsPage() {
 
   return (
     <InfraShell
-      eyebrow={INFRA_EYEBROW.github}
       title="My Requests"
       subtitle="View, edit and resubmit your pending requests, and track their decisions."
     >
@@ -113,7 +115,7 @@ function CreationTab() {
         sortable: false,
         filterable: false,
         renderCell: (params) => (
-          <RowActions
+          <RequestRowActions
             onView={() => setViewing(params.row)}
             onEdit={params.row.state === "Pending" ? () => setEditing(params.row) : undefined}
             onVisit={
@@ -204,66 +206,5 @@ function CreationTab() {
         </Dialog>
       )}
     </Stack>
-  );
-}
-
-function CountChip({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: "info" | "warning" | "success" | "error";
-}) {
-  return <Chip size="small" variant="outlined" color={color} label={`${label}: ${count}`} />;
-}
-
-function StateChip({ state }: { state: InfraRequestState }) {
-  const color = state === "Approved" ? "success" : state === "Rejected" ? "error" : "warning";
-  return <Chip size="small" variant="outlined" color={color} label={state} />;
-}
-
-function RowActions({
-  onView,
-  onEdit,
-  onVisit,
-}: {
-  onView?: () => void;
-  onEdit?: () => void;
-  onVisit?: () => void;
-}) {
-  return (
-    <Stack direction="row" sx={{ alignItems: "center", height: "100%" }}>
-      {onView && (
-        <Tooltip title="View more">
-          <IconButton aria-label="View more" size="small" color="info" onClick={onView}>
-            <EyeIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-      {onEdit && (
-        <Tooltip title="Edit request">
-          <IconButton aria-label="Edit request" size="small" color="primary" onClick={onEdit}>
-            <PencilIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-      {onVisit && (
-        <Tooltip title="Visit Repository">
-          <IconButton aria-label="Visit Repository" size="small" color="success" onClick={onVisit}>
-            <ExternalLinkIcon size={16} />
-          </IconButton>
-        </Tooltip>
-      )}
-    </Stack>
-  );
-}
-
-function visitRepository(organizationName: string, repoName: string) {
-  window.open(
-    `https://github.com/${organizationName}/${repoName}`,
-    "_blank",
-    "noopener,noreferrer",
   );
 }

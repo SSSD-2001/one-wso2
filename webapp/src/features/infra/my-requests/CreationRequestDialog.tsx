@@ -59,7 +59,8 @@ import {
   useAddRepositoryRequestComment,
   useRepositoryRequestComments,
 } from "../api/useInfraRequests";
-import type { InfraRepositoryRequest, InfraRequestState } from "../api/infraTypes";
+import type { InfraRepositoryRequest } from "../api/infraTypes";
+import { stateChipColor } from "./requestTableUi";
 
 export function formatRequestDateTime(value: string | null | undefined): string {
   if (!value) return "N/A";
@@ -406,8 +407,3 @@ function listText(value: string | null | undefined): string {
     .join("\n");
 }
 
-function stateChipColor(state: InfraRequestState): "success" | "error" | "warning" {
-  if (state === "Approved") return "success";
-  if (state === "Rejected") return "error";
-  return "warning";
-}

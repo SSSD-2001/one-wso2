@@ -82,13 +82,3 @@ export const INFRA_APPS: readonly MenuApp[] = [
 export const INFRA_ITEM_IDS: ReadonlySet<string> = new Set(
   INFRA_APPS.flatMap((app) => app.items.map((it) => it.id)),
 );
-
-function eyebrowFor(key: string): { icon: (typeof INFRA_APPS)[number]["icon"]; label: string } {
-  const app = INFRA_APPS.find((a) => a.key === key)!;
-  return { icon: app.icon, label: app.name };
-}
-
-export const INFRA_EYEBROW = {
-  github: eyebrowFor("github"),
-  githubSettings: eyebrowFor("github-settings"),
-} as const;
