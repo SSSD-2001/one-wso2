@@ -1520,6 +1520,12 @@ export const infraServiceUrls = {
   // GET, POST /repository-requests/{id}/comments — comment thread on a creation request.
   repositoryRequestComments: (id: number) =>
     `${infraBackendUrl}/repository-requests/${id}/comments`,
+  // PATCH /repository-requests/{id}/approve — approver/admin decision.
+  repositoryRequestApprove: (id: number) =>
+    `${infraBackendUrl}/repository-requests/${id}/approve`,
+  // PATCH /repository-requests/{id}/reject — body: { commentText }.
+  repositoryRequestReject: (id: number) =>
+    `${infraBackendUrl}/repository-requests/${id}/reject`,
   // POST /github/verify-and-persist-user — verify a GitHub user and persist their information.
   githubVerifyAndPersistUser: `${infraBackendUrl}/github/verify-and-persist-user`,
   // POST /set-default-repository-access — set the default repository access for the caller.

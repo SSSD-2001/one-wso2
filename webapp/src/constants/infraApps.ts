@@ -23,7 +23,7 @@ export const INFRA_APPS: readonly MenuApp[] = [
     name: "Repository Management",
     icon: GitHub,
     alwaysGroup: true,
-    purpose: "Connect GitHub and request repositories.",
+    purpose: "Connect GitHub, request repositories, and review those requests.",
     items: [
       {
         id: "infra-github-connection",
@@ -51,6 +51,13 @@ export const INFRA_APPS: readonly MenuApp[] = [
         label: "My Requests",
         desc: "Your repository creation requests.",
         path: "/infra/github/my-requests",
+        requires: ["admin"],
+      },
+      {
+        id: "infra-github-review-requests",
+        label: "Review Requests",
+        desc: "Approve or reject repository requests.",
+        path: "/infra/github/review-repository-requests",
         requires: ["admin"],
       },
     ],

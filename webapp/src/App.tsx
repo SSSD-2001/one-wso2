@@ -240,6 +240,7 @@ import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPa
 import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
 import InfraGitHubSettingsPage from "@features/infra/pages/InfraGitHubSettingsPage";
 import InfraMyRequestsPage from "@features/infra/pages/InfraMyRequestsPage";
+import InfraReviewRequestsPage from "@features/infra/pages/InfraReviewRequestsPage";
 
 export default function App() {
   return (
@@ -278,6 +279,10 @@ export default function App() {
           />
           <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
           <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
+          <Route
+            path="infra/github/review-repository-requests"
+            element={<InfraReviewRequestsPage />}
+          />
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
           {/* My Team — a lead's reporting chain, ported from people-app. */}
