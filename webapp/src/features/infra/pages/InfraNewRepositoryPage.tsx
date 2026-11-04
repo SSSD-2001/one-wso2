@@ -15,6 +15,7 @@
 // under the License.
 
 import { Alert } from "@wso2/oxygen-ui";
+import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
 import { useInfraGate } from "../api/useInfraGate";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
@@ -23,7 +24,11 @@ export default function InfraNewRepositoryPage() {
   const gate = useInfraGate();
 
   return (
-    <InfraShell title="New Repository" subtitle="Request a new GitHub repository.">
+    <InfraShell
+      eyebrow={INFRA_EYEBROW.github}
+      title="New Repository"
+      subtitle="Request a new GitHub repository."
+    >
       {gate.isEmployee ? (
         <NewRepositoryForm />
       ) : (

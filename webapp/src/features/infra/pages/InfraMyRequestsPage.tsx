@@ -33,6 +33,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
 import { describeError } from "@api/errors";
+import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
 import { useInfraGate } from "../api/useInfraGate";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
@@ -43,8 +44,8 @@ import {
   CountChip,
   RequestRowActions,
   StateChip,
-  visitRepository,
 } from "../my-requests/requestTableUi";
+import { visitRepository } from "../my-requests/requestTableUtils";
 
 const PAGE_SIZE = 10;
 
@@ -53,6 +54,7 @@ export default function InfraMyRequestsPage() {
 
   return (
     <InfraShell
+      eyebrow={INFRA_EYEBROW.github}
       title="My Requests"
       subtitle="View, edit and resubmit your pending requests, and track their decisions."
     >

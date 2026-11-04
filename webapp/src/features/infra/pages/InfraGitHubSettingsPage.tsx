@@ -39,6 +39,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { PencilIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
+import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
 import InfraConfirmDialog from "../components/InfraConfirmDialog";
 import { primaryBtnSx, secondaryBtnSx } from "../components/infraUi";
@@ -71,6 +72,7 @@ export default function InfraGitHubSettingsPage() {
   const gate = useInfraGate();
   return (
     <InfraShell
+      eyebrow={INFRA_EYEBROW.githubSettings}
       title="GitHub Settings"
       subtitle="Organizations, topics, functional leads, and default teams used by the GitHub forms."
     >

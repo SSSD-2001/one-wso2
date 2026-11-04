@@ -22,12 +22,7 @@ import {
   PencilIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { InfraRequestState } from "../api/infraTypes";
-
-export function stateChipColor(state: InfraRequestState): "success" | "error" | "warning" {
-  if (state === "Approved") return "success";
-  if (state === "Rejected") return "error";
-  return "warning";
-}
+import { stateChipColor } from "./requestTableUtils";
 
 export function CountChip({
   label,
@@ -87,13 +82,5 @@ export function RequestRowActions({
         </Tooltip>
       )}
     </Stack>
-  );
-}
-
-export function visitRepository(organizationName: string, repoName: string) {
-  window.open(
-    `https://github.com/${organizationName}/${repoName}`,
-    "_blank",
-    "noopener,noreferrer",
   );
 }

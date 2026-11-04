@@ -15,18 +15,21 @@
 // under the License.
 
 import type { ReactNode } from "react";
-import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Chip, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import type { LucideIcon } from "@wso2/oxygen-ui-icons-react";
 import { isInfraBackendConfigured } from "@config/apiConfig";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useInfraGate } from "../api/useInfraGate";
 
 export default function InfraShell({
+  eyebrow,
   title,
   subtitle,
   requireAuthorized = true,
   center = false,
   children,
 }: {
+  eyebrow?: { icon: LucideIcon; label: string };
   title: string;
   subtitle?: string;
   requireAuthorized?: boolean;
@@ -58,6 +61,16 @@ export default function InfraShell({
           : undefined
       }
     >
+      {eyebrow && (
+        <Chip
+          icon={<eyebrow.icon size={14} />}
+          label={eyebrow.label}
+          color="primary"
+          variant="outlined"
+          size="small"
+          sx={{ mb: 0.5 }}
+        />
+      )}
       <Typography component="h1" variant="h5" sx={{ mb: 0.5, mt: 0 }}>
         {title}
       </Typography>

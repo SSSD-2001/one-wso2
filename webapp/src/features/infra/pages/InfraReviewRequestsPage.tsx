@@ -39,6 +39,7 @@ import {
   XIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
+import { INFRA_EYEBROW } from "@constants/infraApps";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import InfraShell from "../components/InfraShell";
@@ -56,8 +57,8 @@ import {
   CountChip,
   RequestRowActions,
   StateChip,
-  visitRepository,
 } from "../my-requests/requestTableUi";
+import { visitRepository } from "../my-requests/requestTableUtils";
 
 const PAGE_SIZE = 10;
 export const REVIEW_REQUESTS_BASE = "/infra/github/review-repository-requests";
@@ -72,6 +73,7 @@ export default function InfraReviewRequestsPage() {
 
   return (
     <InfraShell
+      eyebrow={INFRA_EYEBROW.github}
       title="Review Repository Requests"
       subtitle="Review, comment on and approve or reject repository requests."
     >

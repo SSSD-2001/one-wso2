@@ -35,6 +35,7 @@ import { describeError } from "@api/errors";
 import { infraServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdTokenClaims } from "@features/security/grc/hooks/useIdTokenClaims";
+import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
 import { primaryBtnSx } from "../components/infraUi";
 import { useInfraGate } from "../api/useInfraGate";
@@ -50,6 +51,7 @@ export default function InfraRepositoryAccessPage() {
 
     return (
         <InfraShell
+        eyebrow={INFRA_EYEBROW.github}
         title="Repository Access"
         subtitle="Default org and team repositories granted for your account."
         >

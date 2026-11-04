@@ -60,7 +60,7 @@ import {
   useRepositoryRequestComments,
 } from "../api/useInfraRequests";
 import type { InfraRepositoryRequest } from "../api/infraTypes";
-import { stateChipColor } from "./requestTableUi";
+import { stateChipColor } from "./requestTableUtils";
 
 export function formatRequestDateTime(value: string | null | undefined): string {
   if (!value) return "N/A";
