@@ -264,13 +264,20 @@ describe("InfraReviewRequestsPage", () => {
     expect(approveMutate).toHaveBeenCalledWith(42, expect.any(Object));
   });
 
-  it("still shows the table when user-info refetch fails but cached data exists", () => {
+  it("shows the shell access error when user-info refetch fails", () => {
     userInfo.isError = true;
     userInfo.error = new Error("refetch failed");
     userInfo.data = { workEmail: "lead@wso2.com" };
+    gate.value = {
+      ...APPROVER,
+      isError: true,
+      errorMessage: "refetch failed",
+    };
     renderAt(`${REVIEW_REQUESTS_BASE}/assigned`);
 
-    expect(screen.getByText("demo-repo")).toBeInTheDocument();
-    expect(screen.queryByText("refetch failed")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Couldn't check your Infra Portal access/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("demo-repo")).not.toBeInTheDocument();
   });
 });
