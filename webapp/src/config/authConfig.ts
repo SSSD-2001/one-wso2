@@ -112,6 +112,11 @@ declare global {
         AUTHORIZE_URL?: string;
         REDIRECT_URL?: string;
       };
+      // Flat keys from before the nested object. Read only when the matching
+      // nested value is absent, so an already-deployed config.js still works.
+      ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
+      ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
       // Base URLs for the three digiops-finance backends surfaced in the
       // Finance perspective. Each is its own service with its own
       // /user-info + role scheme. Optional — when a URL is absent, that

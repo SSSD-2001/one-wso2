@@ -1569,11 +1569,17 @@ export const infraServiceUrls = {
 
 const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 
+const githubOAuth = window.config?.ONE_WSO2_GITHUB_OAUTH;
+
 export const githubOAuthConfig = {
-  clientId: window.config?.ONE_WSO2_GITHUB_OAUTH?.CLIENT_ID ?? "",
+  clientId:
+    githubOAuth?.CLIENT_ID || window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID || "",
   authorizeUrl:
-    window.config?.ONE_WSO2_GITHUB_OAUTH?.AUTHORIZE_URL || DEFAULT_GITHUB_AUTHORIZE_URL,
-  redirectUrl: window.config?.ONE_WSO2_GITHUB_OAUTH?.REDIRECT_URL ?? "",
+    githubOAuth?.AUTHORIZE_URL ||
+    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL ||
+    DEFAULT_GITHUB_AUTHORIZE_URL,
+  redirectUrl:
+    githubOAuth?.REDIRECT_URL || window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL || "",
   scopes: ["read:user", "user:email"] as const,
 };
 
