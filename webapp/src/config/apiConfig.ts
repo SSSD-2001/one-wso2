@@ -1575,8 +1575,7 @@ export const githubOAuthConfig = {
   clientId:
     githubOAuth?.CLIENT_ID ?? window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
   authorizeUrl:
-    githubOAuth?.AUTHORIZE_URL ||
-    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL ||
+    (githubOAuth?.AUTHORIZE_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL) ||
     DEFAULT_GITHUB_AUTHORIZE_URL,
   redirectUrl:
     githubOAuth?.REDIRECT_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
