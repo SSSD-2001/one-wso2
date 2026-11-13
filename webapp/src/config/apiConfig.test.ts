@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parServiceUrls, promotionServiceUrls } from "@config/apiConfig";
 
 // statusArray's comma must stay unencoded, or the backend won't split it.
@@ -68,5 +68,51 @@ describe("parServiceUrls.legacyParHistoryCyclesParticipants", () => {
       expect(url.searchParams.get("cycleName")).toBe(name);
       expect(url.searchParams.has("summary")).toBe(false);
     }
+  });
+});
+
+// githubOAuthConfig is read when apiConfig loads, so each case needs a fresh
+// import against its own window.config.
+const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
+const FLAT_AUTHORIZE_URL = "https://github.example/login/oauth/authorize";
+
+async function loadGitHubOAuth(config: Record<string, unknown> | undefined) {
+  vi.resetModules();
+  (window as unknown as { config?: Record<string, unknown> }).config = config;
+  return (await import("@config/apiConfig")).githubOAuthConfig;
+}
+
+afterEach(() => {
+  delete (window as { config?: unknown }).config;
+});
+
+describe("githubOAuthConfig.authorizeUrl", () => {
+  it("uses the nested authorize URL when it is set", async () => {
+    const cfg = await loadGitHubOAuth({
+      ONE_WSO2_GITHUB_OAUTH: { AUTHORIZE_URL: "https://nested.example/authorize" },
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
+    });
+    expect(cfg.authorizeUrl).toBe("https://nested.example/authorize");
+  });
+
+  it("uses the GitHub default when the nested URL is empty, even if the flat URL is set", async () => {
+    const cfg = await loadGitHubOAuth({
+      ONE_WSO2_GITHUB_OAUTH: { AUTHORIZE_URL: "" },
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
+    });
+    expect(cfg.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
+  });
+
+  it("uses the flat URL when the nested value is absent", async () => {
+    const cfg = await loadGitHubOAuth({
+      ONE_WSO2_GITHUB_OAUTH: {},
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
+    });
+    expect(cfg.authorizeUrl).toBe(FLAT_AUTHORIZE_URL);
+  });
+
+  it("uses the GitHub default when neither URL is set", async () => {
+    const cfg = await loadGitHubOAuth({});
+    expect(cfg.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
   });
 });
