@@ -105,15 +105,16 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
-      // GitHub OAuth for Infra Connect. Optional — when absent, GitHub
-      // Connection shows "not configured" instead of the Connect button.
+      // GitHub OAuth for Infra Connect. Optional. Without a client ID and
+      // redirect URL, the Infra home page shows "GitHub OAuth is not configured"
+      // instead of the Connect button.
       ONE_WSO2_GITHUB_OAUTH?: {
         CLIENT_ID?: string;
         AUTHORIZE_URL?: string;
         REDIRECT_URL?: string;
       };
-      // Flat keys from before the nested object. Read only when the matching
-      // nested value is absent, so an already-deployed config.js still works.
+      // Deprecated; use ONE_WSO2_GITHUB_OAUTH. A nested value, even an empty one,
+      // takes precedence.
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
