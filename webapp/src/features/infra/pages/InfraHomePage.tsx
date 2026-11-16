@@ -21,6 +21,7 @@ import { GitHub } from "@wso2/oxygen-ui-icons-react";
 import { authedPost, authedPut } from "@api/http";
 import { describeError } from "@api/errors";
 import { infraServiceUrls, isGitHubOAuthConfigured } from "@config/apiConfig";
+import { authConfig } from "@config/authConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdTokenClaims } from "@features/security/grc/hooks/useIdTokenClaims";
 import InfraShell from "../components/InfraShell";
@@ -38,6 +39,41 @@ import {
     startGitHubOAuth,
     type GitHubConnectResult,
 } from "../github/githubOAuth";
+
+async function refreshAccessToken(baseUrl: string, clientId: string): Promise<string> {
+    const key = Object.keys(sessionStorage).find((k) => k.includes("session_data"));
+    if (!key) throw new Error("No Asgardeo session.");
+    const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
+    if (typeof session.refresh_token !== "string") throw new Error("No refresh token.");
+  
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/oauth2/token`, {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            client_id: clientId,
+            refresh_token: session.refresh_token,
+            grant_type: "refresh_token",
+        }),
+    });
+    const payload = (await response.json()) as {
+        access_token?: string;
+        id_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        error?: string;
+    };
+    if (!response.ok || !payload.access_token) {
+        throw new Error(payload.error || "Could not refresh the access token.");
+    }
+  
+    session.access_token = payload.access_token;
+    if (payload.id_token) session.id_token = payload.id_token;
+    if (payload.refresh_token) session.refresh_token = payload.refresh_token;
+    if (payload.expires_in) session.expires_in = payload.expires_in;
+    session.created_at = Math.floor(Date.now() / 1000);
+    sessionStorage.setItem(key, JSON.stringify(session));
+    return payload.access_token;
+  }
 
 export default function InfraHomePage() {
     const gate = useInfraGate();
@@ -96,11 +132,12 @@ export default function InfraHomePage() {
                     githubUserId: result.githubUserId ?? undefined,
                     githubUsername: result.githubUsername ?? undefined,
                 });
+                const refreshedAccessToken = await refreshAccessToken(authConfig.baseUrl, authConfig.clientId);
                 await queryClient.invalidateQueries({ queryKey: ["infra-user-info"] });
                 try {
                     await authedPut(
                         infraServiceUrls.setDefaultRepositoryAccess,
-                        await getAccessToken(),
+                        refreshedAccessToken,
                         {},
                     );
                     await queryClient.invalidateQueries({
