@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Box, Button, Chip, Typography } from "@wso2/oxygen-ui";
 import { GitHub } from "@wso2/oxygen-ui-icons-react";
@@ -34,23 +34,75 @@ import { primaryBtnSx } from "../components/infraUi";
 import {
     consumePendingOAuthCode,
     consumeStoredGitHubConnectResult,
+    DEFAULT_REPOSITORY_ACCESS_PENDING_KEY,
     resolveGitHubConnection,
     restorePendingOAuthCode,
     startGitHubOAuth,
     type GitHubConnectResult,
 } from "../github/githubOAuth";
 
-async function refreshAccessToken(baseUrl: string, clientId: string): Promise<string> {
-    const key = Object.keys(sessionStorage).find((k) => k.includes("session_data"));
+const DEFAULT_ACCESS_RETRY_MESSAGE = "Default repository access was not granted.";
+
+interface PendingDefaultAccess {
+    verified: GitHubConnectResult;
+    tokenReady: boolean;
+}
+
+function readPendingDefaultAccess(): PendingDefaultAccess | null {
+    const raw = sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY);
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as PendingDefaultAccess;
+        return parsed.verified?.status === "verified" ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function writePendingDefaultAccess(pending: PendingDefaultAccess): void {
+    sessionStorage.setItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY, JSON.stringify(pending));
+}
+
+function findAsgardeoSessionKey(): string | null {
+    for (let index = 0; index < sessionStorage.length; index += 1) {
+        const key = sessionStorage.key(index);
+        if (key?.includes("session_data")) return key;
+    }
+    return null;
+}
+
+function retainedAccessToken(): string | null {
+    if (!readPendingDefaultAccess()?.tokenReady) return null;
+    const key = findAsgardeoSessionKey();
+    if (!key) return null;
+    const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
+    return typeof session.access_token === "string" ? session.access_token : null;
+}
+
+async function resolveTokenEndpoint(): Promise<string> {
+    const wellKnown = authConfig.wellKnownEndpoint;
+    if (!wellKnown) {
+        return `${authConfig.baseUrl.replace(/\/$/, "")}/oauth2/token`;
+    }
+    const response = await fetch(wellKnown, { headers: { Accept: "application/json" } });
+    const document = (await response.json()) as { token_endpoint?: string };
+    if (!response.ok || !document.token_endpoint) {
+        throw new Error("Could not read the token endpoint.");
+    }
+    return document.token_endpoint;
+}
+
+async function refreshAccessToken(): Promise<string> {
+    const key = findAsgardeoSessionKey();
     if (!key) throw new Error("No Asgardeo session.");
     const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
     if (typeof session.refresh_token !== "string") throw new Error("No refresh token.");
-  
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/oauth2/token`, {
+
+    const response = await fetch(await resolveTokenEndpoint(), {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-            client_id: clientId,
+            client_id: authConfig.clientId,
             refresh_token: session.refresh_token,
             grant_type: "refresh_token",
         }),
@@ -65,15 +117,19 @@ async function refreshAccessToken(baseUrl: string, clientId: string): Promise<st
     if (!response.ok || !payload.access_token) {
         throw new Error(payload.error || "Could not refresh the access token.");
     }
-  
+
     session.access_token = payload.access_token;
     if (payload.id_token) session.id_token = payload.id_token;
     if (payload.refresh_token) session.refresh_token = payload.refresh_token;
     if (payload.expires_in) session.expires_in = payload.expires_in;
-    session.created_at = Math.floor(Date.now() / 1000);
+    // The SDK checks created_at + expires_in * 1000 against Date.now().
+    session.created_at = Date.now();
     sessionStorage.setItem(key, JSON.stringify(session));
+
+    const pending = readPendingDefaultAccess();
+    if (pending) writePendingDefaultAccess({ ...pending, tokenReady: true });
     return payload.access_token;
-  }
+}
 
 export default function InfraHomePage() {
     const gate = useInfraGate();
@@ -81,10 +137,14 @@ export default function InfraHomePage() {
     const claims = useIdTokenClaims();
     const getAccessToken = useAccessToken();
     const queryClient = useQueryClient();
-    const [connectError, setConnectError] = useState<string | null>(null);
+    const pendingOnLoad = readPendingDefaultAccess();
+    const [connectError, setConnectError] = useState<string | null>(
+        pendingOnLoad ? DEFAULT_ACCESS_RETRY_MESSAGE : null,
+    );
     const [connecting, setConnecting] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
-    const [verified, setVerified] = useState<GitHubConnectResult | null>(null);
+    const [verified, setVerified] = useState<GitHubConnectResult | null>(pendingOnLoad?.verified ?? null);
+    const [defaultAccessPending, setDefaultAccessPending] = useState(pendingOnLoad !== null);
 
     const jwtGithubUserId =
         typeof claims?.githubUserId === "string" ? claims.githubUserId : null;
@@ -94,12 +154,30 @@ export default function InfraHomePage() {
         githubUsername: verified?.githubUsername ?? userInfo.data?.githubUsername,
     });
 
+    const grantDefaultRepositoryAccess = useCallback(async () => {
+        try {
+            const token = retainedAccessToken() ?? (await refreshAccessToken());
+            await authedPut(infraServiceUrls.setDefaultRepositoryAccess, token, {});
+            sessionStorage.removeItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY);
+            setDefaultAccessPending(false);
+            await queryClient.invalidateQueries({ queryKey: ["infra-default-repository-access"] });
+        } catch (error) {
+            setConnectError(describeError(error));
+        }
+    }, [queryClient]);
+
+    const retryDefaultAccess = () => {
+        setConnectError(null);
+        setConnecting(true);
+        void grantDefaultRepositoryAccess().finally(() => setConnecting(false));
+    };
+
     useEffect(() => {
         const stored = consumeStoredGitHubConnectResult();
         if (stored?.status === "error") {
             setConnectError(stored.errorMessage ?? "GitHub connection failed.");
         }
-    
+
         const code = consumePendingOAuthCode();
         if (!code) return;
 
@@ -127,32 +205,35 @@ export default function InfraHomePage() {
                     );
                     return;
                 }
-                setVerified({
+                const verifiedResult: GitHubConnectResult = {
                     status: "verified",
                     githubUserId: result.githubUserId ?? undefined,
                     githubUsername: result.githubUsername ?? undefined,
-                });
-                const refreshedAccessToken = await refreshAccessToken(authConfig.baseUrl, authConfig.clientId);
+                };
+                setVerified(verifiedResult);
+                writePendingDefaultAccess({ verified: verifiedResult, tokenReady: false });
+                setDefaultAccessPending(true);
                 await queryClient.invalidateQueries({ queryKey: ["infra-user-info"] });
-                try {
-                    await authedPut(
-                        infraServiceUrls.setDefaultRepositoryAccess,
-                        refreshedAccessToken,
-                        {},
-                    );
-                    await queryClient.invalidateQueries({
-                        queryKey: ["infra-default-repository-access"],
-                    });
-                } catch (error) {
-                    setConnectError(describeError(error));
-                }
+                await grantDefaultRepositoryAccess();
             } catch (error) {
                 setConnectError(describeError(error));
             } finally {
                 setConnecting(false);
             }
         })();
-    }, [getAccessToken, queryClient]);
+    }, [getAccessToken, grantDefaultRepositoryAccess, queryClient]);
+
+    const retryButton = (
+        <Button
+            variant="contained"
+            size="small"
+            disabled={connecting}
+            onClick={retryDefaultAccess}
+            sx={primaryBtnSx}
+        >
+            {connecting ? "Connecting…" : "Retry"}
+        </Button>
+    );
 
     return (
         <InfraShell
@@ -169,6 +250,7 @@ export default function InfraHomePage() {
         {gate.isEmployee && (
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mb: 2 }}>
             {isConnected ? (
+                <>
                 <Chip
                 icon={<GitHub size={14} />}
                 label={githubUsername ? `@${githubUsername}` : "Connected"}
@@ -176,10 +258,14 @@ export default function InfraHomePage() {
                 variant="outlined"
                 size="small"
                 />
+                {defaultAccessPending && retryButton}
+                </>
             ) : (
                 <>
                 <Chip label="Not Connected" variant="outlined" size="small" />
-                {isGitHubOAuthConfigured() ? (
+                {defaultAccessPending ? (
+                    retryButton
+                ) : isGitHubOAuthConfigured() ? (
                     <Button
                     variant="contained"
                     size="small"
