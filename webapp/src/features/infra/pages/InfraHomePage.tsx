@@ -18,10 +18,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert, Box, Button, Chip, Typography } from "@wso2/oxygen-ui";
 import { GitHub } from "@wso2/oxygen-ui-icons-react";
-import { authedPost, authedPut } from "@api/http";
+import { authedPost, authedPut, HttpError } from "@api/http";
 import { describeError } from "@api/errors";
+import { decodeJwtPayload } from "@api/tokenExpiry";
+import { findAsgardeoSessionKey, forceRefreshAccessToken } from "@api/forceRefreshAccessToken";
 import { infraServiceUrls, isGitHubOAuthConfigured } from "@config/apiConfig";
-import { authConfig } from "@config/authConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdTokenClaims } from "@features/security/grc/hooks/useIdTokenClaims";
 import InfraShell from "../components/InfraShell";
@@ -30,6 +31,7 @@ import GitHubConnectionGuide from "../github/GitHubConnectionGuide";
 import { useInfraGate } from "../api/useInfraGate";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
 import type { GitHubVerifyResponse } from "../api/infraTypes";
+import { infraLocalAssertionHeaders } from "../api/infraLocalBackend";
 import { primaryBtnSx } from "../components/infraUi";
 import {
     consumePendingOAuthCode,
@@ -43,19 +45,26 @@ import {
 
 const DEFAULT_ACCESS_RETRY_MESSAGE = "Default repository access was not granted.";
 
+/** GitHub connect whose default-access grant has not finished. */
 interface PendingDefaultAccess {
+    /** Verified GitHub account to show while the grant is unfinished. */
     verified: GitHubConnectResult;
+    /** True after a refresh has been stored. A 4xx from the grant clears it. */
     tokenReady: boolean;
+    /** `sub` of the session that stored this record. */
     sub: string;
+    /** ID token from the refresh. Sent only to a local backend. */
     idToken?: string;
 }
 
+/** Asgardeo session object, or null when this tab has no session record. */
 function readAsgardeoSession(): Record<string, unknown> | null {
     const key = findAsgardeoSessionKey();
     if (!key) return null;
     return JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
 }
 
+/** `sub` of the current session, or null when no session token carries one. */
 function currentSessionSubject(): string | null {
     const session = readAsgardeoSession();
     if (!session) return null;
@@ -67,6 +76,10 @@ function currentSessionSubject(): string | null {
     return null;
 }
 
+/**
+ * Pending grant for the current session.
+ * Null when nothing is stored, the JSON is unreadable, or `sub` does not match.
+ */
 function readPendingDefaultAccess(): PendingDefaultAccess | null {
     const raw = sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY);
     if (!raw) return null;
@@ -80,18 +93,12 @@ function readPendingDefaultAccess(): PendingDefaultAccess | null {
     }
 }
 
+/** Stores `pending` until the grant succeeds or the user signs out. */
 function writePendingDefaultAccess(pending: PendingDefaultAccess): void {
     sessionStorage.setItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY, JSON.stringify(pending));
 }
 
-function findAsgardeoSessionKey(): string | null {
-    for (let index = 0; index < sessionStorage.length; index += 1) {
-        const key = sessionStorage.key(index);
-        if (key?.includes("session_data")) return key;
-    }
-    return null;
-}
-
+/** True when `created_at + expires_in` is still ahead of now. Both values come from the session record. */
 function accessTokenIsCurrent(session: Record<string, unknown>): boolean {
     const createdAt = Number(session.created_at);
     const expiresIn = Number(session.expires_in);
@@ -103,6 +110,10 @@ function accessTokenIsCurrent(session: Record<string, unknown>): boolean {
     );
 }
 
+/**
+ * Stored access token for a finished refresh that has not expired.
+ * Null when the grant must refresh again.
+ */
 function retainedAccessToken(): string | null {
     if (!readPendingDefaultAccess()?.tokenReady) return null;
     const session = readAsgardeoSession();
@@ -111,20 +122,10 @@ function retainedAccessToken(): string | null {
     return token;
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const segment = token.split(".")[1];
-    if (!segment) return null;
-    try {
-        const base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
-        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-        return JSON.parse(atob(padded)) as Record<string, unknown>;
-    } catch {
-        return null;
-    }
-}
-
-// The access token does not carry the custom githubUserId attribute. The ID token
-// does when Asgardeo releases it, and the local backend reads x-jwt-assertion first.
+/**
+ * ID token that carries `githubUserId` and a non-empty `groups` claim.
+ * Null when either is missing.
+ */
 function idTokenForGithubClaim(): string | null {
     const idToken = readPendingDefaultAccess()?.idToken;
     if (!idToken) return null;
@@ -136,62 +137,23 @@ function idTokenForGithubClaim(): string | null {
     return idToken;
 }
 
-async function resolveTokenEndpoint(): Promise<string> {
-    const wellKnown = authConfig.wellKnownEndpoint;
-    if (!wellKnown) {
-        return `${authConfig.baseUrl.replace(/\/$/, "")}/oauth2/token`;
-    }
-    const response = await fetch(wellKnown, { headers: { Accept: "application/json" } });
-    const document = (await response.json()) as { token_endpoint?: string };
-    if (!response.ok || !document.token_endpoint) {
-        throw new Error("Could not read the token endpoint.");
-    }
-    return document.token_endpoint;
-}
-
-async function refreshAccessToken(): Promise<string> {
-    const key = findAsgardeoSessionKey();
-    if (!key) throw new Error("No Asgardeo session.");
-    const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
-    if (typeof session.refresh_token !== "string") throw new Error("No refresh token.");
-
-    const response = await fetch(await resolveTokenEndpoint(), {
-        method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-            client_id: authConfig.clientId,
-            refresh_token: session.refresh_token,
-            grant_type: "refresh_token",
-        }),
-    });
-    const payload = (await response.json()) as {
-        access_token?: string;
-        id_token?: string;
-        refresh_token?: string;
-        expires_in?: number;
-        error?: string;
-    };
-    if (!response.ok || !payload.access_token) {
-        throw new Error(payload.error || "Could not refresh the access token.");
-    }
-
+/** Refreshes the session and marks the pending grant ready. Returns the new access token. */
+async function refreshConnectAccessToken(): Promise<string> {
+    const tokens = await forceRefreshAccessToken();
     const pending = readPendingDefaultAccess();
-    session.access_token = payload.access_token;
-    if (payload.id_token) session.id_token = payload.id_token;
-    if (payload.refresh_token) session.refresh_token = payload.refresh_token;
-    if (payload.expires_in) session.expires_in = payload.expires_in;
-    // The SDK checks created_at + expires_in * 1000 against Date.now().
-    session.created_at = Date.now();
-    sessionStorage.setItem(key, JSON.stringify(session));
-
     if (pending) {
         writePendingDefaultAccess({
             ...pending,
             tokenReady: true,
-            ...(payload.id_token ? { idToken: payload.id_token } : {}),
+            ...(tokens.idToken ? { idToken: tokens.idToken } : {}),
         });
     }
-    return payload.access_token;
+    return tokens.accessToken;
+}
+
+/** True when the grant was rejected with HTTP 400–499. */
+function isClientError(error: unknown): boolean {
+    return error instanceof HttpError && error.status >= 400 && error.status < 500;
 }
 
 export default function InfraHomePage() {
@@ -200,7 +162,7 @@ export default function InfraHomePage() {
     const claims = useIdTokenClaims();
     const getAccessToken = useAccessToken();
     const queryClient = useQueryClient();
-    const pendingOnLoad = readPendingDefaultAccess();
+    const [pendingOnLoad] = useState(readPendingDefaultAccess);
     const [connectError, setConnectError] = useState<string | null>(
         pendingOnLoad ? DEFAULT_ACCESS_RETRY_MESSAGE : null,
     );
@@ -219,18 +181,24 @@ export default function InfraHomePage() {
 
     const grantDefaultRepositoryAccess = useCallback(async () => {
         try {
-            const token = retainedAccessToken() ?? (await refreshAccessToken());
+            const token = retainedAccessToken() ?? (await refreshConnectAccessToken());
             const idToken = idTokenForGithubClaim();
             await authedPut(
                 infraServiceUrls.setDefaultRepositoryAccess,
                 token,
                 {},
-                idToken ? { "x-jwt-assertion": idToken } : undefined,
+                idToken ? infraLocalAssertionHeaders(idToken) : undefined,
             );
             sessionStorage.removeItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY);
             setDefaultAccessPending(false);
             await queryClient.invalidateQueries({ queryKey: ["infra-default-repository-access"] });
         } catch (error) {
+            if (isClientError(error)) {
+                const pending = readPendingDefaultAccess();
+                if (pending?.tokenReady) {
+                    writePendingDefaultAccess({ ...pending, tokenReady: false });
+                }
+            }
             setConnectError(describeError(error));
         }
     }, [queryClient]);

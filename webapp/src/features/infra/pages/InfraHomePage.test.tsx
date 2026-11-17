@@ -29,6 +29,10 @@ const authConfig = vi.hoisted(() => ({
   wellKnownEndpoint: undefined as string | undefined,
 }));
 
+const apiConfig = vi.hoisted(() => ({
+  infraBackendUrl: "https://infra.example",
+}));
+
 const http = vi.hoisted(() => ({
   authedPost: vi.fn(),
   authedPut: vi.fn(),
@@ -45,14 +49,22 @@ vi.mock("@config/apiConfig", () => ({
     githubVerifyAndPersistUser: "https://infra.example/github/verify-and-persist-user",
     setDefaultRepositoryAccess: "https://infra.example/set-default-repository-access",
   },
-  infraBackendUrl: "",
+  get infraBackendUrl() {
+    return apiConfig.infraBackendUrl;
+  },
 }));
 
 vi.mock("@api/http", () => ({
   authedPost: http.authedPost,
   authedPut: http.authedPut,
   // describeError checks `instanceof HttpError` on every failure.
-  HttpError: class HttpError extends Error {},
+  HttpError: class HttpError extends Error {
+    status: number;
+    constructor(status = 500) {
+      super(`HTTP ${status}`);
+      this.status = status;
+    }
+  },
 }));
 
 vi.mock("@hooks/useAccessToken", () => ({
@@ -98,7 +110,8 @@ const tokenResponse = {
 };
 
 function jsonResponse(body: unknown, ok = true) {
-  return { ok, json: async () => body };
+  const text = JSON.stringify(body);
+  return { ok, json: async () => body, text: async () => text };
 }
 
 function renderHome(g: Partial<InfraGate> = {}) {
@@ -131,6 +144,7 @@ beforeEach(() => {
   gate.value = AUTHORIZED;
   sessionStorage.clear();
   authConfig.wellKnownEndpoint = undefined;
+  apiConfig.infraBackendUrl = "https://infra.example";
   getAccessToken.mockReset();
   getAccessToken.mockResolvedValue("sign-in-token");
   http.authedPost.mockReset();
@@ -163,6 +177,26 @@ describe("InfraHomePage", () => {
     expect(screen.queryByText("Not here yet")).not.toBeInTheDocument();
   });
 
+  it("hides the username until the grant finishes", async () => {
+    let releasePut: (value: null) => void = () => {};
+    const putGate = new Promise<null>((resolve) => {
+      releasePut = resolve;
+    });
+    http.authedPut.mockImplementationOnce(() => putGate);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(tokenResponse)));
+    seedVerifiedReturn();
+
+    renderHome();
+
+    expect(await screen.findByRole("button", { name: "Connecting…" })).toBeInTheDocument();
+    expect(screen.queryByText("@octocat")).not.toBeInTheDocument();
+
+    releasePut(null);
+
+    expect(await screen.findByText("@octocat")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connecting…" })).not.toBeInTheDocument();
+  });
+
   it("refreshes the session and grants default repository access", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(tokenResponse));
     vi.stubGlobal("fetch", fetchMock);
@@ -175,7 +209,7 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "refreshed-access",
         {},
-        githubAssertion,
+        undefined,
       ),
     );
     expect(screen.queryByRole("button", { name: "Connecting…" })).not.toBeInTheDocument();
@@ -243,7 +277,7 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "refreshed-access",
         {},
-        githubAssertion,
+        undefined,
       ),
     );
     expect(http.authedPost).toHaveBeenCalledTimes(1);
@@ -271,7 +305,7 @@ describe("InfraHomePage", () => {
       "https://infra.example/set-default-repository-access",
       "refreshed-access",
       {},
-      githubAssertion,
+      undefined,
     );
   });
 
@@ -352,7 +386,7 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "refreshed-access",
         {},
-        githubAssertion,
+        undefined,
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -385,5 +419,41 @@ describe("InfraHomePage", () => {
     expect(screen.getByText("Not Connected")).toBeInTheDocument();
     expect(http.authedPut).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY)).not.toBeNull();
+  });
+
+  it("sends the ID token assertion only to a local backend", async () => {
+    apiConfig.infraBackendUrl = "http://localhost:9091";
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(tokenResponse)));
+    seedVerifiedReturn();
+
+    renderHome();
+
+    await waitFor(() =>
+      expect(http.authedPut).toHaveBeenCalledWith(
+        "https://infra.example/set-default-repository-access",
+        "refreshed-access",
+        {},
+        githubAssertion,
+      ),
+    );
+  });
+
+  it("refreshes again when the grant returns a client error", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => jsonResponse(tokenResponse));
+    vi.stubGlobal("fetch", fetchMock);
+    const { HttpError } = await import("@api/http");
+    http.authedPut.mockRejectedValueOnce(new HttpError(400)).mockResolvedValueOnce(null);
+    seedVerifiedReturn();
+
+    renderHome();
+
+    expect(await screen.findByText("Something went wrong (HTTP 400).")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await user.click(await screen.findByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(http.authedPut).toHaveBeenCalledTimes(2);
   });
 });

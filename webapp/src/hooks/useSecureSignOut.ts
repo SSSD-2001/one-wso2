@@ -51,8 +51,7 @@ export function useSecureSignOut(): () => void {
     // tab cannot be seeded with this one's identity.
     forgetResolvedSubOnSignOut();
     // The pending GitHub grant is our key, not Asgardeo's, so signOut leaves it
-    // for the next account in this tab. Idle timeout and session expiry both
-    // sign out through here.
+    // for the next account in this tab.
     try {
       clearPendingDefaultRepositoryAccess();
     } catch {

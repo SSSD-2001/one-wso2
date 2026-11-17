@@ -52,6 +52,22 @@ function b64urlDecode(segment: string): string {
 }
 
 /**
+ * Decoded JWT payload, or null when the token is not a readable three-part JWT.
+ * Does not verify the signature.
+ */
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length !== 3 || !parts[1]) return null;
+  try {
+    const payload: unknown = JSON.parse(b64urlDecode(parts[1]));
+    if (!payload || typeof payload !== "object") return null;
+    return payload as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Classifies a raw JWT by its `exp` claim.
  *
  * Returns "unknown" rather than throwing for anything unreadable — an opaque
