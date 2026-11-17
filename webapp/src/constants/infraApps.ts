@@ -14,14 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { GitHub, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
+import { GitBranchIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 
 export const INFRA_APPS: readonly MenuApp[] = [
   {
     key: "github",
-    name: "Repository Management",
-    icon: GitHub,
+    name: "Repo Management",
+    icon: GitBranchIcon,
     alwaysGroup: true,
     purpose: "Connect GitHub, request repositories, and review those requests.",
     items: [
