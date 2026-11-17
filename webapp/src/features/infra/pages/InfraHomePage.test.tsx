@@ -60,9 +60,11 @@ vi.mock("@api/http", () => ({
   // describeError checks `instanceof HttpError` on every failure.
   HttpError: class HttpError extends Error {
     status: number;
-    constructor(status = 500) {
-      super(`HTTP ${status}`);
+    responseBody: string;
+    constructor(_url: string, status: number, body: string) {
+      super(`Request failed with HTTP ${status}`);
       this.status = status;
+      this.responseBody = body;
     }
   },
 }));
@@ -443,7 +445,11 @@ describe("InfraHomePage", () => {
     const fetchMock = vi.fn(async () => jsonResponse(tokenResponse));
     vi.stubGlobal("fetch", fetchMock);
     const { HttpError } = await import("@api/http");
-    http.authedPut.mockRejectedValueOnce(new HttpError(400)).mockResolvedValueOnce(null);
+    http.authedPut
+      .mockRejectedValueOnce(
+        new HttpError("https://infra.example/set-default-repository-access", 400, ""),
+      )
+      .mockResolvedValueOnce(null);
     seedVerifiedReturn();
 
     renderHome();
