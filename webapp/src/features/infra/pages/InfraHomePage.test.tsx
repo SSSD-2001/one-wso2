@@ -76,9 +76,17 @@ const AUTHORIZED: InfraGate = {
   retry: () => {},
 };
 
+function compactJwt(payload: Record<string, unknown>): string {
+  const encoded = btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `header.${encoded}.sig`;
+}
+
+const refreshedIdToken = compactJwt({ githubUserId: "123", groups: ["wso2-interns"] });
+const githubAssertion = { "x-jwt-assertion": refreshedIdToken };
+
 const tokenResponse = {
   access_token: "refreshed-access",
-  id_token: "id-token",
+  id_token: refreshedIdToken,
   refresh_token: "refresh-2",
   expires_in: 3600,
 };
@@ -160,8 +168,11 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "refreshed-access",
         {},
+        githubAssertion,
       ),
     );
+    expect(screen.queryByRole("button", { name: "Connecting…" })).not.toBeInTheDocument();
+    expect(screen.getByText("@octocat")).toBeInTheDocument();
     expect(http.authedPost).toHaveBeenCalledWith(
       "https://infra.example/github/verify-and-persist-user",
       "sign-in-token",
@@ -223,6 +234,7 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "refreshed-access",
         {},
+        githubAssertion,
       ),
     );
     expect(http.authedPost).toHaveBeenCalledTimes(1);
@@ -250,6 +262,7 @@ describe("InfraHomePage", () => {
       "https://infra.example/set-default-repository-access",
       "refreshed-access",
       {},
+      githubAssertion,
     );
   });
 
@@ -286,6 +299,7 @@ describe("InfraHomePage", () => {
         "https://infra.example/set-default-repository-access",
         "retained-access",
         {},
+        undefined,
       ),
     );
     expect(fetchMock).not.toHaveBeenCalled();

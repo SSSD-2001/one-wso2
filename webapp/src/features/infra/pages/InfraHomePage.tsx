@@ -46,6 +46,7 @@ const DEFAULT_ACCESS_RETRY_MESSAGE = "Default repository access was not granted.
 interface PendingDefaultAccess {
     verified: GitHubConnectResult;
     tokenReady: boolean;
+    idToken?: string;
 }
 
 function readPendingDefaultAccess(): PendingDefaultAccess | null {
@@ -77,6 +78,31 @@ function retainedAccessToken(): string | null {
     if (!key) return null;
     const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
     return typeof session.access_token === "string" ? session.access_token : null;
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    const segment = token.split(".")[1];
+    if (!segment) return null;
+    try {
+        const base64 = segment.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+        return JSON.parse(atob(padded)) as Record<string, unknown>;
+    } catch {
+        return null;
+    }
+}
+
+// The access token does not carry the custom githubUserId attribute. The ID token
+// does when Asgardeo releases it, and the local backend reads x-jwt-assertion first.
+function idTokenForGithubClaim(): string | null {
+    const idToken = readPendingDefaultAccess()?.idToken;
+    if (!idToken) return null;
+    const payload = decodeJwtPayload(idToken);
+    const githubUserId = payload?.githubUserId;
+    const groups = payload?.groups;
+    if (typeof githubUserId !== "string" || githubUserId.length === 0) return null;
+    if (!Array.isArray(groups) || groups.length === 0) return null;
+    return idToken;
 }
 
 async function resolveTokenEndpoint(): Promise<string> {
@@ -127,7 +153,13 @@ async function refreshAccessToken(): Promise<string> {
     sessionStorage.setItem(key, JSON.stringify(session));
 
     const pending = readPendingDefaultAccess();
-    if (pending) writePendingDefaultAccess({ ...pending, tokenReady: true });
+    if (pending) {
+        writePendingDefaultAccess({
+            ...pending,
+            tokenReady: true,
+            ...(payload.id_token ? { idToken: payload.id_token } : {}),
+        });
+    }
     return payload.access_token;
 }
 
@@ -157,7 +189,13 @@ export default function InfraHomePage() {
     const grantDefaultRepositoryAccess = useCallback(async () => {
         try {
             const token = retainedAccessToken() ?? (await refreshAccessToken());
-            await authedPut(infraServiceUrls.setDefaultRepositoryAccess, token, {});
+            const idToken = idTokenForGithubClaim();
+            await authedPut(
+                infraServiceUrls.setDefaultRepositoryAccess,
+                token,
+                {},
+                idToken ? { "x-jwt-assertion": idToken } : undefined,
+            );
             sessionStorage.removeItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY);
             setDefaultAccessPending(false);
             await queryClient.invalidateQueries({ queryKey: ["infra-default-repository-access"] });
@@ -249,7 +287,11 @@ export default function InfraHomePage() {
 
         {gate.isEmployee && (
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mb: 2 }}>
-            {isConnected ? (
+            {connecting ? (
+                <Button variant="contained" size="small" disabled sx={primaryBtnSx}>
+                    Connecting…
+                </Button>
+            ) : isConnected ? (
                 <>
                 <Chip
                 icon={<GitHub size={14} />}
@@ -269,11 +311,10 @@ export default function InfraHomePage() {
                     <Button
                     variant="contained"
                     size="small"
-                    disabled={connecting}
                     onClick={() => setConfirmOpen(true)}
                     sx={primaryBtnSx}
                     >
-                    {connecting ? "Connecting…" : "Connect with GitHub"}
+                    Connect with GitHub
                     </Button>
                 ) : (
                     <Typography variant="body2" color="text.secondary">
