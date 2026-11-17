@@ -76,7 +76,7 @@ describe("parServiceUrls.legacyParHistoryCyclesParticipants", () => {
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const FLAT_AUTHORIZE_URL = "https://github.example/login/oauth/authorize";
 
-async function loadGitHubOAuth(config: Record<string, unknown> | undefined) {
+async function loadApiConfig(config: Record<string, unknown> | undefined) {
   vi.resetModules();
   (window as unknown as { config?: Record<string, unknown> }).config = config;
   return import("@config/apiConfig");
@@ -88,32 +88,32 @@ afterEach(() => {
 
 describe("githubOAuthConfig.authorizeUrl", () => {
   it("uses the nested authorize URL when it is set", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { AUTHORIZE_URL: "https://nested.example/authorize" },
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
     });
-    expect(cfg.githubOAuthConfig.authorizeUrl).toBe("https://nested.example/authorize");
+    expect(githubOAuthConfig.authorizeUrl).toBe("https://nested.example/authorize");
   });
 
   it("uses the GitHub default when the nested URL is empty, even if the flat URL is set", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { AUTHORIZE_URL: "" },
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
     });
-    expect(cfg.githubOAuthConfig.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
+    expect(githubOAuthConfig.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
   });
 
   it("uses the flat URL when the nested value is absent", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: {},
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: FLAT_AUTHORIZE_URL,
     });
-    expect(cfg.githubOAuthConfig.authorizeUrl).toBe(FLAT_AUTHORIZE_URL);
+    expect(githubOAuthConfig.authorizeUrl).toBe(FLAT_AUTHORIZE_URL);
   });
 
   it("uses the GitHub default when neither URL is set", async () => {
-    const cfg = await loadGitHubOAuth({});
-    expect(cfg.githubOAuthConfig.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
+    const { githubOAuthConfig } = await loadApiConfig({});
+    expect(githubOAuthConfig.authorizeUrl).toBe(GITHUB_AUTHORIZE_URL);
   });
 });
 
@@ -124,64 +124,74 @@ const FLAT_REDIRECT_URL = "https://flat.example/callback";
 
 describe("githubOAuthConfig.clientId", () => {
   it("uses the nested client ID when it is set", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { CLIENT_ID: NESTED_CLIENT_ID },
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: FLAT_CLIENT_ID,
     });
-    expect(cfg.githubOAuthConfig.clientId).toBe(NESTED_CLIENT_ID);
+    expect(githubOAuthConfig.clientId).toBe(NESTED_CLIENT_ID);
   });
 
   it("uses the flat client ID when the nested value is absent", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: {},
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: FLAT_CLIENT_ID,
     });
-    expect(cfg.githubOAuthConfig.clientId).toBe(FLAT_CLIENT_ID);
+    expect(githubOAuthConfig.clientId).toBe(FLAT_CLIENT_ID);
   });
 
   it("keeps an empty nested client ID, so Connect stays hidden", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig, isGitHubOAuthConfigured } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { CLIENT_ID: "", REDIRECT_URL: NESTED_REDIRECT_URL },
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: FLAT_CLIENT_ID,
     });
-    expect(cfg.githubOAuthConfig.clientId).toBe("");
-    expect(cfg.isGitHubOAuthConfigured()).toBe(false);
+    expect(githubOAuthConfig.clientId).toBe("");
+    expect(isGitHubOAuthConfigured()).toBe(false);
   });
 
   it("is empty when neither client ID is set", async () => {
-    const cfg = await loadGitHubOAuth({});
-    expect(cfg.githubOAuthConfig.clientId).toBe("");
+    const { githubOAuthConfig } = await loadApiConfig({});
+    expect(githubOAuthConfig.clientId).toBe("");
   });
 });
 
 describe("githubOAuthConfig.redirectUrl", () => {
   it("uses the nested redirect URL when it is set", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { REDIRECT_URL: NESTED_REDIRECT_URL },
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: FLAT_REDIRECT_URL,
     });
-    expect(cfg.githubOAuthConfig.redirectUrl).toBe(NESTED_REDIRECT_URL);
+    expect(githubOAuthConfig.redirectUrl).toBe(NESTED_REDIRECT_URL);
   });
 
   it("uses the flat redirect URL when the nested value is absent", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: {},
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: FLAT_REDIRECT_URL,
     });
-    expect(cfg.githubOAuthConfig.redirectUrl).toBe(FLAT_REDIRECT_URL);
+    expect(githubOAuthConfig.redirectUrl).toBe(FLAT_REDIRECT_URL);
   });
 
   it("keeps an empty nested redirect URL, so Connect stays hidden", async () => {
-    const cfg = await loadGitHubOAuth({
+    const { githubOAuthConfig, isGitHubOAuthConfigured } = await loadApiConfig({
       ONE_WSO2_GITHUB_OAUTH: { CLIENT_ID: NESTED_CLIENT_ID, REDIRECT_URL: "" },
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: FLAT_REDIRECT_URL,
     });
-    expect(cfg.githubOAuthConfig.redirectUrl).toBe("");
-    expect(cfg.isGitHubOAuthConfigured()).toBe(false);
+    expect(githubOAuthConfig.redirectUrl).toBe("");
+    expect(isGitHubOAuthConfigured()).toBe(false);
   });
 
   it("is empty when neither redirect URL is set", async () => {
-    const cfg = await loadGitHubOAuth({});
-    expect(cfg.githubOAuthConfig.redirectUrl).toBe("");
+    const { githubOAuthConfig } = await loadApiConfig({});
+    expect(githubOAuthConfig.redirectUrl).toBe("");
+  });
+});
+
+describe("isGitHubOAuthConfigured", () => {
+  it("shows Connect when the client ID is nested and the redirect URL is still flat", async () => {
+    const { isGitHubOAuthConfigured } = await loadApiConfig({
+      ONE_WSO2_GITHUB_OAUTH: { CLIENT_ID: NESTED_CLIENT_ID },
+      ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: FLAT_REDIRECT_URL,
+    });
+    expect(isGitHubOAuthConfigured()).toBe(true);
   });
 });
