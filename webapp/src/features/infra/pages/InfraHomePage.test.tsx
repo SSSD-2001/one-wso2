@@ -81,7 +81,13 @@ function compactJwt(payload: Record<string, unknown>): string {
   return `header.${encoded}.sig`;
 }
 
-const refreshedIdToken = compactJwt({ githubUserId: "123", groups: ["wso2-interns"] });
+const sessionSubject = "user-1";
+const sessionIdToken = compactJwt({ sub: sessionSubject });
+const refreshedIdToken = compactJwt({
+  githubUserId: "123",
+  groups: ["wso2-interns"],
+  sub: sessionSubject,
+});
 const githubAssertion = { "x-jwt-assertion": refreshedIdToken };
 
 const tokenResponse = {
@@ -114,6 +120,7 @@ function seedVerifiedReturn(): void {
     JSON.stringify({
       refresh_token: "refresh-1",
       access_token: "old-access",
+      id_token: sessionIdToken,
       expires_in: 3600,
       created_at: 1,
     }),
@@ -173,6 +180,8 @@ describe("InfraHomePage", () => {
     );
     expect(screen.queryByRole("button", { name: "Connecting…" })).not.toBeInTheDocument();
     expect(screen.getByText("@octocat")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connect your GitHub account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Adding an email address to your GitHub account" })).not.toBeInTheDocument();
     expect(http.authedPost).toHaveBeenCalledWith(
       "https://infra.example/github/verify-and-persist-user",
       "sign-in-token",
@@ -275,6 +284,7 @@ describe("InfraHomePage", () => {
       JSON.stringify({
         refresh_token: "refresh-1",
         access_token: "retained-access",
+        id_token: sessionIdToken,
         expires_in: 3600,
         created_at: Date.now(),
       }),
@@ -284,6 +294,7 @@ describe("InfraHomePage", () => {
       JSON.stringify({
         verified: { status: "verified", githubUserId: "123", githubUsername: "octocat" },
         tokenReady: true,
+        sub: sessionSubject,
       }),
     );
 
@@ -291,6 +302,7 @@ describe("InfraHomePage", () => {
 
     expect(screen.getByText("Default repository access was not granted.")).toBeInTheDocument();
     expect(screen.getByText("@octocat")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Connect your GitHub account" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
@@ -305,5 +317,73 @@ describe("InfraHomePage", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(http.authedPost).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY)).toBeNull();
+  });
+
+  it("refreshes an expired retained access token before retrying the grant", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => jsonResponse(tokenResponse));
+    vi.stubGlobal("fetch", fetchMock);
+    sessionStorage.setItem(
+      "asgardeo_session_data",
+      JSON.stringify({
+        refresh_token: "refresh-1",
+        access_token: "retained-access",
+        id_token: sessionIdToken,
+        expires_in: "3600",
+        created_at: Date.now() - 3_700_000,
+      }),
+    );
+    sessionStorage.setItem(
+      DEFAULT_REPOSITORY_ACCESS_PENDING_KEY,
+      JSON.stringify({
+        verified: { status: "verified", githubUserId: "123", githubUsername: "octocat" },
+        tokenReady: true,
+        sub: sessionSubject,
+        idToken: refreshedIdToken,
+      }),
+    );
+
+    renderHome();
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() =>
+      expect(http.authedPut).toHaveBeenCalledWith(
+        "https://infra.example/set-default-repository-access",
+        "refreshed-access",
+        {},
+        githubAssertion,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a pending GitHub grant that belongs to another user", () => {
+    sessionStorage.setItem(
+      "asgardeo_session_data",
+      JSON.stringify({
+        access_token: "current-access",
+        id_token: sessionIdToken,
+        expires_in: 3600,
+        created_at: Date.now(),
+      }),
+    );
+    sessionStorage.setItem(
+      DEFAULT_REPOSITORY_ACCESS_PENDING_KEY,
+      JSON.stringify({
+        verified: { status: "verified", githubUserId: "123", githubUsername: "octocat" },
+        tokenReady: true,
+        sub: "someone-else",
+        idToken: refreshedIdToken,
+      }),
+    );
+
+    renderHome();
+
+    expect(screen.queryByText("@octocat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Default repository access was not granted.")).not.toBeInTheDocument();
+    expect(screen.getByText("Not Connected")).toBeInTheDocument();
+    expect(http.authedPut).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY)).not.toBeNull();
   });
 });

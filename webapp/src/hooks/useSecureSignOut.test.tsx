@@ -15,6 +15,7 @@
 // under the License.
 
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_REPOSITORY_ACCESS_PENDING_KEY } from "@features/infra/github/githubOAuth";
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -42,10 +43,12 @@ describe("useSecureSignOut", () => {
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     );
 
+    sessionStorage.setItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY, "{\"sub\":\"previous-user\"}");
     const { result } = renderHook(() => useSecureSignOut(), { wrapper });
     result.current();
 
     expect(forgetResolvedSubOnSignOut).toHaveBeenCalledTimes(1);
     expect(signOut).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY)).toBeNull();
   });
 });

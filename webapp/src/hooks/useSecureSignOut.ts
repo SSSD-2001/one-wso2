@@ -20,6 +20,7 @@ import { useAsgardeo } from "@asgardeo/react";
 import { SIGNING_OUT_EVENT } from "@constants/appEvents";
 import { resetUnauthorizedOrigins } from "@api/tokenExpiry";
 import { forgetResolvedSubOnSignOut } from "@hooks/useAsgardeoSub";
+import { clearPendingDefaultRepositoryAccess } from "@features/infra/github/githubOAuth";
 
 // Sign out AND purge client-held state. React Query keeps fetched profile /
 // leave / finance data in memory; Asgardeo signOut() alone leaves it there
@@ -49,6 +50,14 @@ export function useSecureSignOut(): () => void {
     // mounted consumer or not — so the next account to sign in in the same
     // tab cannot be seeded with this one's identity.
     forgetResolvedSubOnSignOut();
+    // The pending GitHub grant is our key, not Asgardeo's, so signOut leaves it
+    // for the next account in this tab. Idle timeout and session expiry both
+    // sign out through here.
+    try {
+      clearPendingDefaultRepositoryAccess();
+    } catch {
+      // best effort — never block sign-out on storage
+    }
     try {
       window.dispatchEvent(new CustomEvent(SIGNING_OUT_EVENT));
     } catch {

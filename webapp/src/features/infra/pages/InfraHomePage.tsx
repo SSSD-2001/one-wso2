@@ -46,7 +46,25 @@ const DEFAULT_ACCESS_RETRY_MESSAGE = "Default repository access was not granted.
 interface PendingDefaultAccess {
     verified: GitHubConnectResult;
     tokenReady: boolean;
+    sub: string;
     idToken?: string;
+}
+
+function readAsgardeoSession(): Record<string, unknown> | null {
+    const key = findAsgardeoSessionKey();
+    if (!key) return null;
+    return JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
+}
+
+function currentSessionSubject(): string | null {
+    const session = readAsgardeoSession();
+    if (!session) return null;
+    for (const token of [session.id_token, session.access_token]) {
+        if (typeof token !== "string") continue;
+        const sub = decodeJwtPayload(token)?.sub;
+        if (typeof sub === "string" && sub.length > 0) return sub;
+    }
+    return null;
 }
 
 function readPendingDefaultAccess(): PendingDefaultAccess | null {
@@ -54,7 +72,9 @@ function readPendingDefaultAccess(): PendingDefaultAccess | null {
     if (!raw) return null;
     try {
         const parsed = JSON.parse(raw) as PendingDefaultAccess;
-        return parsed.verified?.status === "verified" ? parsed : null;
+        const subject = currentSessionSubject();
+        if (!subject || parsed.sub !== subject || parsed.verified?.status !== "verified") return null;
+        return parsed;
     } catch {
         return null;
     }
@@ -72,12 +92,23 @@ function findAsgardeoSessionKey(): string | null {
     return null;
 }
 
+function accessTokenIsCurrent(session: Record<string, unknown>): boolean {
+    const createdAt = Number(session.created_at);
+    const expiresIn = Number(session.expires_in);
+    return (
+        Number.isFinite(createdAt) &&
+        Number.isFinite(expiresIn) &&
+        expiresIn > 0 &&
+        createdAt + expiresIn * 1000 > Date.now()
+    );
+}
+
 function retainedAccessToken(): string | null {
     if (!readPendingDefaultAccess()?.tokenReady) return null;
-    const key = findAsgardeoSessionKey();
-    if (!key) return null;
-    const session = JSON.parse(sessionStorage.getItem(key) || "{}") as Record<string, unknown>;
-    return typeof session.access_token === "string" ? session.access_token : null;
+    const session = readAsgardeoSession();
+    const token = session?.access_token;
+    if (!session || typeof token !== "string" || !accessTokenIsCurrent(session)) return null;
+    return token;
 }
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -144,6 +175,7 @@ async function refreshAccessToken(): Promise<string> {
         throw new Error(payload.error || "Could not refresh the access token.");
     }
 
+    const pending = readPendingDefaultAccess();
     session.access_token = payload.access_token;
     if (payload.id_token) session.id_token = payload.id_token;
     if (payload.refresh_token) session.refresh_token = payload.refresh_token;
@@ -152,7 +184,6 @@ async function refreshAccessToken(): Promise<string> {
     session.created_at = Date.now();
     sessionStorage.setItem(key, JSON.stringify(session));
 
-    const pending = readPendingDefaultAccess();
     if (pending) {
         writePendingDefaultAccess({
             ...pending,
@@ -249,7 +280,14 @@ export default function InfraHomePage() {
                     githubUsername: result.githubUsername ?? undefined,
                 };
                 setVerified(verifiedResult);
-                writePendingDefaultAccess({ verified: verifiedResult, tokenReady: false });
+                const subject = currentSessionSubject();
+                if (subject) {
+                    writePendingDefaultAccess({
+                        verified: verifiedResult,
+                        tokenReady: false,
+                        sub: subject,
+                    });
+                }
                 setDefaultAccessPending(true);
                 await queryClient.invalidateQueries({ queryKey: ["infra-user-info"] });
                 await grantDefaultRepositoryAccess();
@@ -326,7 +364,7 @@ export default function InfraHomePage() {
             </Box>
         )}
 
-        {gate.isEmployee && <GitHubConnectionGuide />}
+        {gate.isEmployee && !isConnected && <GitHubConnectionGuide />}
 
         <InfraConfirmDialog
             open={confirmOpen}
