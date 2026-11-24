@@ -231,10 +231,27 @@ describe("InfraHomePage", () => {
     const session = JSON.parse(sessionStorage.getItem("asgardeo_session_data") ?? "{}") as {
       created_at: number;
       expires_in: number;
+      refresh_token: string;
     };
+    expect(session.refresh_token).toBe("refresh-2");
     expect(session.created_at).toBeGreaterThan(1_000_000_000_000);
     expect(session.created_at + session.expires_in * 1000).toBeGreaterThan(Date.now());
     expect(sessionStorage.getItem(DEFAULT_REPOSITORY_ACCESS_PENDING_KEY)).toBeNull();
+  });
+
+  it("keeps the stored refresh token when the token endpoint omits one", async () => {
+    const withoutRefreshToken = { ...tokenResponse };
+    delete withoutRefreshToken.refresh_token;
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withoutRefreshToken)));
+    seedVerifiedReturn();
+
+    renderHome();
+
+    await waitFor(() => expect(http.authedPut).toHaveBeenCalledTimes(1));
+    const session = JSON.parse(sessionStorage.getItem("asgardeo_session_data") ?? "{}") as {
+      refresh_token: string;
+    };
+    expect(session.refresh_token).toBe("refresh-1");
   });
 
   it("posts the refresh to the token endpoint from discovery", async () => {

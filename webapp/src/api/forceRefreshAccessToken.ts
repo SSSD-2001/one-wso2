@@ -61,9 +61,11 @@ export async function forceRefreshAccessToken(): Promise<RefreshedSessionTokens>
   if (!accessToken) throw new Error("Could not refresh the access token.");
 
   const idToken = textField(payload, "id_token");
+  const refreshToken = textField(payload, "refresh_token");
   session.access_token = accessToken;
   if (idToken) session.id_token = idToken;
-  // Keep the stored refresh token. GitHub connect only needs a new access token.
+  // The grant consumes the stored refresh token when the IdP rotates it.
+  if (refreshToken) session.refresh_token = refreshToken;
   if (typeof payload.expires_in === "number") session.expires_in = payload.expires_in;
   session.created_at = Date.now();
   sessionStorage.setItem(key, JSON.stringify(session));
