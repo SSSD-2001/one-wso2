@@ -240,8 +240,11 @@ describe("InfraHomePage", () => {
   });
 
   it("keeps the stored refresh token when the token endpoint omits one", async () => {
-    const withoutRefreshToken = { ...tokenResponse };
-    delete withoutRefreshToken.refresh_token;
+    const withoutRefreshToken = {
+      access_token: tokenResponse.access_token,
+      id_token: tokenResponse.id_token,
+      expires_in: tokenResponse.expires_in,
+    };
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(withoutRefreshToken)));
     seedVerifiedReturn();
 
