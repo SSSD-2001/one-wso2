@@ -64,7 +64,7 @@ export default function InfraRepositoryAccessPage() {
     );
 }
 
-function DefaultRepositoryAccess() {
+export function DefaultRepositoryAccess({ connected = false }: { connected?: boolean }) {
     const userInfo = useInfraUserInfo();
     const claims = useIdTokenClaims();
     const getAccessToken = useAccessToken();
@@ -77,9 +77,10 @@ function DefaultRepositoryAccess() {
 
     const jwtGithubUserId =
         typeof claims?.githubUserId === "string" ? claims.githubUserId : null;
-    const { isConnected } = resolveGitHubConnection({
+    const { isConnected: accountConnected } = resolveGitHubConnection({
         jwtGithubUserId: jwtGithubUserId ?? userInfo.data?.githubUserId,
     });
+    const isConnected = connected || accountConnected;
 
     const access = useQuery<DefaultRepositoryAccess>({
         queryKey: ["infra-default-repository-access"],

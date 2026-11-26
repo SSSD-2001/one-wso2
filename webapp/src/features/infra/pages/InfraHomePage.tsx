@@ -26,6 +26,7 @@ import { useIdTokenClaims } from "@features/security/grc/hooks/useIdTokenClaims"
 import InfraShell from "../components/InfraShell";
 import InfraConfirmDialog from "../components/InfraConfirmDialog";
 import GitHubConnectionGuide from "../github/GitHubConnectionGuide";
+import { DefaultRepositoryAccess } from "./InfraRepositoryAccessPage";
 import { useInfraGate } from "../api/useInfraGate";
 import { useInfraUserInfo } from "../api/useInfraUserInfo";
 import type { GitHubVerifyResponse } from "../api/infraTypes";
@@ -162,7 +163,13 @@ export default function InfraHomePage() {
             </Box>
         )}
 
-        {gate.isEmployee && <GitHubConnectionGuide />}
+        {gate.isEmployee && !isConnected && <GitHubConnectionGuide />}
+
+        {gate.isEmployee && isConnected && (
+            <Box sx={{ textAlign: "left", width: "min(100%, 40rem)", mt: 4 }}>
+                <DefaultRepositoryAccess connected />
+            </Box>
+        )}
 
         <InfraConfirmDialog
             open={confirmOpen}
