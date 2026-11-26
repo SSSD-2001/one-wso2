@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 import {
   Alert,
   Box,
+  Button,
   Card,
   CircularProgress,
   DataGrid,
@@ -30,8 +31,9 @@ import {
   TextField,
 } from "@wso2/oxygen-ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { PlusIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
+import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { describeError } from "@api/errors";
 import { INFRA_EYEBROW } from "@constants/infraApps";
 import InfraShell from "../components/InfraShell";
@@ -46,6 +48,7 @@ import {
   StateChip,
 } from "../my-requests/requestTableUi";
 import { visitRepository } from "../my-requests/requestTableUtils";
+import { primaryBtnSx } from "../components/infraUi";
 
 const PAGE_SIZE = 10;
 
@@ -77,6 +80,7 @@ function CreationTab() {
   const [repoName, setRepoName] = useState("");
   const [viewing, setViewing] = useState<InfraRepositoryRequest | null>(null);
   const [editing, setEditing] = useState<InfraRepositoryRequest | null>(null);
+  const [creating, setCreating] = useState(false);
   const requests = useMyCreationRequests(email, { limit: pageSize, offset: page * pageSize, repoName });
 
   const applySearch = () => {
@@ -149,27 +153,38 @@ function CreationTab() {
           <CountChip label="Approved" count={counts?.approvedCount ?? 0} color="success" />
           <CountChip label="Rejected" count={counts?.rejectedCount ?? 0} color="error" />
         </Stack>
-        <TextField
-          size="small"
-          label="Search by Repository Name"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") applySearch();
-          }}
-          sx={{ ml: "auto", width: 320, flexShrink: 0 }}
-          slotProps={{
-            input: {
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton aria-label="Search" onClick={applySearch} edge="end">
-                    <SearchIcon size={16} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
+        <Stack spacing={1} sx={{ ml: "auto", width: 320, flexShrink: 0, alignItems: "flex-end" }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PlusIcon size={14} />}
+            sx={primaryBtnSx}
+            onClick={() => setCreating(true)}
+          >
+            New Repo
+          </Button>
+          <TextField
+            size="small"
+            label="Search by Repository Name"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") applySearch();
+            }}
+            sx={{ width: 320 }}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton aria-label="Search" onClick={applySearch} edge="end">
+                      <SearchIcon size={16} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Stack>
       </Box>
       {requests.isError && <Alert severity="error">{describeError(requests.error)}</Alert>}
       <Card variant="outlined">
@@ -192,10 +207,41 @@ function CreationTab() {
         />
       </Card>
       {viewing && <CreationRequestDialog request={viewing} onClose={() => setViewing(null)} />}
+      {creating && (
+        <Dialog
+          open
+          onClose={() => setCreating(false)}
+          maxWidth="lg"
+          fullWidth
+          slotProps={{
+            paper: { sx: dialogPaperSx },
+            backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>New Repository</DialogTitle>
+          <DialogContent dividers>
+            <NewRepositoryForm
+              onSaved={() => {
+                setCreating(false);
+                void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       {editing && (
-        <Dialog open onClose={() => setEditing(null)} fullWidth maxWidth="md">
-          <DialogTitle>Edit Repository Request</DialogTitle>
-          <DialogContent>
+        <Dialog
+          open
+          onClose={() => setEditing(null)}
+          fullWidth
+          maxWidth="lg"
+          slotProps={{
+            paper: { sx: dialogPaperSx },
+            backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>Edit Repository Request</DialogTitle>
+          <DialogContent dividers>
             <NewRepositoryForm
               key={editing.id}
               request={editing}
