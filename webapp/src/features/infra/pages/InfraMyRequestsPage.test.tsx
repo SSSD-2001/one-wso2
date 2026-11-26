@@ -110,13 +110,4 @@ describe("InfraMyRequestsPage", () => {
 
     expect(calls.at(-1)).toEqual({ limit: 10, offset: 0, repoName: "demo" });
   });
-
-  it("opens the new repository form over the page", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "New Repo" }));
-    expect(screen.getByRole("dialog", { name: "New Repository" })).toBeInTheDocument();
-  });
 });

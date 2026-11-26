@@ -70,6 +70,11 @@ export default function InfraMyRequestsPage() {
   );
 }
 
+const REQUEST_DIALOG_SLOT_PROPS = {
+  paper: { sx: dialogPaperSx },
+  backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
+};
+
 function CreationTab() {
   const queryClient = useQueryClient();
   const userInfo = useInfraUserInfo();
@@ -81,6 +86,9 @@ function CreationTab() {
   const [viewing, setViewing] = useState<InfraRepositoryRequest | null>(null);
   const [editing, setEditing] = useState<InfraRepositoryRequest | null>(null);
   const [creating, setCreating] = useState(false);
+  const refreshRequests = () => {
+    void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+  };
   const requests = useMyCreationRequests(email, { limit: pageSize, offset: page * pageSize, repoName });
 
   const applySearch = () => {
@@ -213,17 +221,14 @@ function CreationTab() {
           onClose={() => setCreating(false)}
           maxWidth="lg"
           fullWidth
-          slotProps={{
-            paper: { sx: dialogPaperSx },
-            backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
-          }}
+          slotProps={REQUEST_DIALOG_SLOT_PROPS}
         >
           <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>New Repository</DialogTitle>
           <DialogContent dividers>
             <NewRepositoryForm
               onSaved={() => {
                 setCreating(false);
-                void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+                refreshRequests();
               }}
             />
           </DialogContent>
@@ -235,10 +240,7 @@ function CreationTab() {
           onClose={() => setEditing(null)}
           fullWidth
           maxWidth="lg"
-          slotProps={{
-            paper: { sx: dialogPaperSx },
-            backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
-          }}
+          slotProps={REQUEST_DIALOG_SLOT_PROPS}
         >
           <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>Edit Repository Request</DialogTitle>
           <DialogContent dividers>
@@ -247,7 +249,7 @@ function CreationTab() {
               request={editing}
               onSaved={() => {
                 setEditing(null);
-                void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+                refreshRequests();
               }}
             />
           </DialogContent>
