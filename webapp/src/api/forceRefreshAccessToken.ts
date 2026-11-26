@@ -22,11 +22,10 @@ export interface RefreshedSessionTokens {
   idToken?: string;
 }
 
-// TODO: Silent sign-in only renews a token that is about to expire. This grant
-// gets a new access token after GitHub connect without a login. githubUserId
-// comes back on the ID token and still has to be released on the access token
-// for production. Calling refreshAccessToken here ran a silent sign-in, which
-// failed locally and opened the session-expired dialog.
+// Silent sign-in only renews a token that is about to expire, and one failure
+// opens the session-expired dialog. This grant gets a new access token after
+// GitHub connect without a login. Production already includes githubUserId on
+// a newly issued access token.
 /**
  * Exchanges the stored refresh token and writes the new session back.
  *
