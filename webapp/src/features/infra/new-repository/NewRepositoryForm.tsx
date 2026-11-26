@@ -193,6 +193,7 @@ export default function NewRepositoryForm({
       onSuccess: () => {
         showSuccess("Repository request submitted.");
         resetForm();
+        onSaved?.();
       },
     });
   };
