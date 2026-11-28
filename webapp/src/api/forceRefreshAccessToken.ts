@@ -22,17 +22,15 @@ export interface RefreshedSessionTokens {
   idToken?: string;
 }
 
-// Silent sign-in only renews a token that is about to expire, and one failure
-// opens the session-expired dialog. This grant gets a new access token after
-// GitHub connect without a login. Production already includes githubUserId on
-// a newly issued access token.
 /**
  * Exchanges the stored refresh token and writes the new session back.
  *
  * `getAccessToken()` returns the stored access token. The SDK refreshes it
  * only once that token is due to expire, so a still-valid token keeps the
- * claims it was issued with. `created_at` is stored in milliseconds, which is
- * what the SDK compares with `Date.now()`.
+ * claims it was issued with. Unlike silent sign-in, this renews a still-valid
+ * token, and a failure does not raise the session-expired dialog.
+ * `created_at` is stored in milliseconds, which is what the SDK compares with
+ * `Date.now()`.
  *
  * Throws when there is no session, no refresh token, or the token endpoint
  * rejects the grant.
