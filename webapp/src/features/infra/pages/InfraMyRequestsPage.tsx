@@ -32,6 +32,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import ExistingRepoAccessForm from "../access-request/ExistingRepoAccessForm";
 import NewRepositoryForm from "../new-repository/NewRepositoryForm";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { describeError } from "@api/errors";
@@ -86,8 +87,10 @@ function CreationTab() {
   const [viewing, setViewing] = useState<InfraRepositoryRequest | null>(null);
   const [editing, setEditing] = useState<InfraRepositoryRequest | null>(null);
   const [creating, setCreating] = useState(false);
+  const [requestingAccess, setRequestingAccess] = useState(false);
   const refreshRequests = () => {
     void queryClient.invalidateQueries({ queryKey: ["infra-my-creation-requests"] });
+    void queryClient.invalidateQueries({ queryKey: ["infra-my-access-requests"] });
   };
   const requests = useMyCreationRequests(email, { limit: pageSize, offset: page * pageSize, repoName });
 
@@ -161,16 +164,27 @@ function CreationTab() {
           <CountChip label="Approved" count={counts?.approvedCount ?? 0} color="success" />
           <CountChip label="Rejected" count={counts?.rejectedCount ?? 0} color="error" />
         </Stack>
-        <Stack spacing={1} sx={{ ml: "auto", width: 320, flexShrink: 0, alignItems: "flex-end" }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PlusIcon size={14} />}
-            sx={primaryBtnSx}
-            onClick={() => setCreating(true)}
-          >
-            New Repo
-          </Button>
+        <Stack spacing={1} sx={{ ml: "auto", flexShrink: 0, alignItems: "flex-end" }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PlusIcon size={14} />}
+              sx={primaryBtnSx}
+              onClick={() => setCreating(true)}
+            >
+              New Repo
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PlusIcon size={14} />}
+              sx={primaryBtnSx}
+              onClick={() => setRequestingAccess(true)}
+            >
+              Access Repo
+            </Button>
+          </Stack>
           <TextField
             size="small"
             label="Search by Repository Name"
@@ -228,6 +242,27 @@ function CreationTab() {
             <NewRepositoryForm
               onSaved={() => {
                 setCreating(false);
+                refreshRequests();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+      {requestingAccess && (
+        <Dialog
+          open
+          onClose={() => setRequestingAccess(false)}
+          maxWidth="lg"
+          fullWidth
+          slotProps={REQUEST_DIALOG_SLOT_PROPS}
+        >
+          <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>
+            Request access to an existing repository
+          </DialogTitle>
+          <DialogContent dividers>
+            <ExistingRepoAccessForm
+              onSaved={() => {
+                setRequestingAccess(false);
                 refreshRequests();
               }}
             />

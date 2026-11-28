@@ -120,3 +120,47 @@ export function useInfraTeams(organizationName: string, enabled = true) {
     retry: httpRetry,
   });
 }
+
+export function useOrgGithubRepos(organizationId: number, enabled = true) {
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const localHeaders = useInfraLocalHeaders();
+  const configured = isInfraBackendConfigured();
+  return useQuery<{ name: string }[]>({
+    queryKey: ["infra-org-github-repos", organizationId],
+    enabled: enabled && isSignedIn && configured && organizationId > 0,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<{ name: string }[]>(
+        infraServiceUrls.githubOrgRepos(organizationId),
+        accessToken,
+        await localHeaders(),
+      );
+    },
+    staleTime: 60 * 1000,
+    retry: httpRetry,
+  });
+}
+
+export function useRepositoryLeads(organizationId: number, repoName: string, enabled = true) {
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const localHeaders = useInfraLocalHeaders();
+  const configured = isInfraBackendConfigured();
+  const repo = repoName.trim();
+  return useQuery<string[]>({
+    queryKey: ["infra-repository-leads", organizationId, repo],
+    enabled: enabled && isSignedIn && configured && organizationId > 0 && repo.length > 0,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      const params = new URLSearchParams({ repoName: repo });
+      return authedGet<string[]>(
+        `${infraServiceUrls.repositoryLeads(organizationId)}?${params.toString()}`,
+        accessToken,
+        await localHeaders(),
+      );
+    },
+    staleTime: 60 * 1000,
+    retry: httpRetry,
+  });
+}

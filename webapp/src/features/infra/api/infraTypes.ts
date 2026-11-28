@@ -131,3 +131,34 @@ export interface InfraRepositoryRequestList {
   rejectedCount: number;
   repositoryRequests: InfraRepositoryRequest[];
 }
+
+/** GitHub collaborator permission for an existing-repo access request. */
+export type InfraAccessPermission = "pull" | "triage" | "push";
+
+export interface InfraAccessRequest {
+  id: number;
+  email: string;
+  githubUsername: string;
+  leadEmail: string;
+  ccList: string;
+  organizationId: number;
+  orgName: string;
+  repoName: string;
+  permission: InfraAccessPermission;
+  justification: string;
+  state: InfraRequestState;
+  reviewerEmail: string | null;
+  reviewComment: string | null;
+  timestamp: string;
+  updatedAt: string | null;
+}
+
+export interface InfraAccessRequestPayload {
+  leadEmail: string;
+  ccList: string;
+  organizationId: number;
+  orgName: string;
+  repoName: string;
+  permission: InfraAccessPermission;
+  justification: string;
+}

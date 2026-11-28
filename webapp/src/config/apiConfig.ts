@@ -1620,6 +1620,20 @@ export const infraServiceUrls = {
   setDefaultRepositoryAccess: `${infraBackendUrl}/set-default-repository-access`,
   // GET /default-repository-access — get the default repository access for the caller.
   defaultRepositoryAccess: `${infraBackendUrl}/default-repository-access`,
+  // GET /organizations/{id}/github-repos — repositories in the org for the access form.
+  githubOrgRepos: (organizationId: number) =>
+    `${infraBackendUrl}/organizations/${organizationId}/github-repos`,
+  // GET /organizations/{id}/repository-leads?repoName= — lead emails for that repo.
+  repositoryLeads: (organizationId: number) =>
+    `${infraBackendUrl}/organizations/${organizationId}/repository-leads`,
+  // GET, POST /repository-access-requests — list or create access requests.
+  repositoryAccessRequests: `${infraBackendUrl}/repository-access-requests`,
+  // PATCH /repository-access-requests/{id}/approve — lead/admin approve.
+  repositoryAccessRequestApprove: (id: number) =>
+    `${infraBackendUrl}/repository-access-requests/${id}/approve`,
+  // PATCH /repository-access-requests/{id}/reject — body: { comment }.
+  repositoryAccessRequestReject: (id: number) =>
+    `${infraBackendUrl}/repository-access-requests/${id}/reject`,
 };
 
 const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";

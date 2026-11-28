@@ -21,7 +21,12 @@ import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdToken } from "@hooks/useIdToken";
 import { infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
-import type { InfraRepositoryRequestList, InfraRequestComment } from "./infraTypes";
+import type {
+  InfraAccessRequest,
+  InfraAccessRequestPayload,
+  InfraRepositoryRequestList,
+  InfraRequestComment,
+} from "./infraTypes";
 import { infraLocalAssertionHeaders } from "./infraLocalBackend";
 
 export function useMyCreationRequests(
@@ -93,6 +98,46 @@ export function useReviewCreationRequests(
       );
     },
     retry: httpRetry,
+  });
+}
+
+export function useMyAccessRequests(enabled = true) {
+  const { isSignedIn } = useAsgardeo();
+  const getAccessToken = useAccessToken();
+  const getIdToken = useIdToken();
+  const configured = isInfraBackendConfigured();
+  return useQuery<InfraAccessRequest[]>({
+    queryKey: ["infra-my-access-requests"],
+    enabled: enabled && isSignedIn && configured,
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return authedGet<InfraAccessRequest[]>(
+        infraServiceUrls.repositoryAccessRequests,
+        accessToken,
+        infraLocalAssertionHeaders(await getIdToken()),
+      );
+    },
+    retry: httpRetry,
+  });
+}
+
+export function useCreateAccessRequest() {
+  const getAccessToken = useAccessToken();
+  const getIdToken = useIdToken();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: InfraAccessRequestPayload) => {
+      const accessToken = await getAccessToken();
+      return authedPost<InfraAccessRequest>(
+        infraServiceUrls.repositoryAccessRequests,
+        accessToken,
+        body,
+        infraLocalAssertionHeaders(await getIdToken()),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["infra-my-access-requests"] });
+    },
   });
 }
 
